@@ -7,71 +7,131 @@
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;700&display=swap');
+
+  /* ── CSS 변수: 폰 기본, PC에서 2배 ── */
   :root {
-    --bg:      #080808; --surface: #101010; --border: #1e1e1e;
-    --text:    #e8e8e8; --muted:   #3a3a3a; --accent: #c8ff00;
-    --danger:  #ff3c3c; --orange:  #ff9500; --glow:   rgba(200,255,0,.15);
+    --bg:#080808; --surface:#101010; --border:#1e1e1e;
+    --text:#e8e8e8; --muted:#555; --accent:#c8ff00;
+    --danger:#ff3c3c; --orange:#ff9500; --glow:rgba(200,255,0,.15);
+
+    /* 기본 (모바일) */
+    --fs-brand:   20px;
+    --fs-btn:     11px;
+    --fs-tog:     11px;
+    --fs-tag:     10px;
+    --fs-unit:    16px;
+    --fs-skey:    9px;
+    --fs-sval:    11px;
+    --fs-badge:   9px;
+    --pad-header: 8px 14px;
+    --pad-stat:   6px 12px;
+    --pad-btn:    6px 10px;
+    --sep-h:      24px;
+    --dot-sz:     7px;
   }
+
+  /* PC: 1.9배 확대 */
+  @media (min-width: 768px) {
+    :root {
+      --fs-brand:   38px;
+      --fs-btn:     14px;
+      --fs-tog:     14px;
+      --fs-tag:     14px;
+      --fs-unit:    28px;
+      --fs-skey:    12px;
+      --fs-sval:    16px;
+      --fs-badge:   13px;
+      --pad-header: 14px 24px;
+      --pad-stat:   10px 20px;
+      --pad-btn:    8px 16px;
+      --sep-h:      36px;
+      --dot-sz:     10px;
+    }
+  }
+
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
     background:var(--bg); color:var(--text);
     font-family:'JetBrains Mono',monospace;
-    height:100vh; display:grid; grid-template-rows:auto 1fr auto;
+    height:100dvh; display:grid; grid-template-rows:auto 1fr auto;
     overflow:hidden; user-select:none;
   }
 
-  /* HEADER */
+  /* ── HEADER ── */
   header {
-    display:flex; align-items:center; gap:14px;
-    padding:10px 20px; background:var(--surface);
-    border-bottom:1px solid var(--border); flex-wrap:wrap;
+    display:flex; align-items:center; gap:10px;
+    padding:var(--pad-header); background:var(--surface);
+    border-bottom:1px solid var(--border);
+    flex-wrap:wrap;            /* 줄 바꿈 허용 */
+    overflow:visible;
   }
   .brand {
-    font-family:'Bebas Neue',sans-serif; font-size:22px;
-    letter-spacing:4px; color:var(--accent);
-    text-shadow:0 0 20px var(--glow); flex-shrink:0;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:var(--fs-brand); letter-spacing:4px;
+    color:var(--accent); text-shadow:0 0 20px var(--glow);
+    flex-shrink:0;
   }
-  .sep { width:1px; height:28px; background:var(--border); flex-shrink:0; }
+  .sep { width:1px; height:var(--sep-h); background:var(--border); flex-shrink:0; }
+
   .dot {
-    width:8px; height:8px; border-radius:50%; background:var(--muted);
+    width:var(--dot-sz); height:var(--dot-sz);
+    border-radius:50%; background:var(--muted);
     transition:background .3s,box-shadow .3s; flex-shrink:0;
   }
   .dot.on     { background:var(--accent); box-shadow:0 0 8px var(--glow); }
   .dot.err    { background:var(--danger); }
-  .dot.mirror { background:var(--orange); box-shadow:0 0 8px rgba(255,149,0,.4); }
+  .dot.mir    { background:var(--orange); box-shadow:0 0 8px rgba(255,149,0,.4); }
 
+  /* 버튼 기본 */
   button {
-    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
-    letter-spacing:1px; text-transform:uppercase; padding:6px 12px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:var(--fs-btn); font-weight:700;
+    letter-spacing:1px; text-transform:uppercase;
+    padding:var(--pad-btn);
     border:1px solid var(--border); border-radius:2px;
-    background:transparent; color:var(--muted);
+    background:transparent;
+    /* ③ 비활성 포함 기본 색상은 흰색(텍스트) */
+    color:var(--text);
     cursor:pointer; transition:all .15s; flex-shrink:0;
   }
-  button:hover   { border-color:var(--accent); color:var(--accent); }
-  button.live    { border-color:var(--danger);  color:var(--danger); }
-  button.mir-on  { border-color:var(--orange);  color:var(--orange); }
-  button:disabled{ opacity:.3; pointer-events:none; }
+  button:hover    { border-color:var(--accent); color:var(--accent); }
+  button.live     { border-color:var(--danger);  color:var(--danger); }
+  button.mir-on   { border-color:var(--orange);  color:var(--orange); }
+  /* ③ 비활성: 흰색+반투명 (회색 안 됨) */
+  button:disabled { opacity:.35; pointer-events:none; color:var(--text); }
 
-  .tgroup { display:flex; border:1px solid var(--border); border-radius:2px; overflow:hidden; }
+  .tgroup { display:flex; border:1px solid var(--border); border-radius:2px; overflow:hidden; flex-shrink:0; }
   .tog {
-    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
-    letter-spacing:1px; text-transform:uppercase; padding:6px 10px;
-    cursor:pointer; color:var(--muted); border:none;
+    font-family:'JetBrains Mono',monospace;
+    font-size:var(--fs-tog); font-weight:700;
+    letter-spacing:1px; text-transform:uppercase;
+    padding:var(--pad-btn);
+    cursor:pointer; color:var(--text); border:none;
     background:transparent; transition:all .15s;
   }
   .tog+.tog { border-left:1px solid var(--border); }
-  .tog:hover{ color:var(--text); }
+  .tog:hover{ color:var(--accent); }
   .tog.sel  { background:var(--accent); color:#000; }
+  .tog:disabled { opacity:.35; pointer-events:none; }
 
   .vbadge {
-    display:none; font-size:10px; font-weight:700; letter-spacing:2px;
+    display:none; font-size:var(--fs-badge); font-weight:700; letter-spacing:2px;
     padding:4px 10px; border-radius:2px;
     background:rgba(255,149,0,.12); border:1px solid var(--orange);
-    color:var(--orange); text-transform:uppercase;
+    color:var(--orange); text-transform:uppercase; flex-shrink:0;
   }
   .vbadge.show { display:block; }
 
-  /* MAIN */
+  /* ④ 모바일에서 mirror 버튼 행을 별도 줄로 내려 오버플로우 방지 */
+  .mir-row {
+    display:flex; align-items:center; gap:8px;
+    flex-shrink:0;
+  }
+  @media (max-width: 767px) {
+    .mir-row { margin-left:auto; }   /* 오른쪽 끝으로 밀되 flex-wrap이 있어 줄바꿈 */
+  }
+
+  /* ── MAIN ── */
   main {
     display:grid; grid-template-columns:1fr 1fr;
     gap:1px; background:var(--border); overflow:hidden;
@@ -79,72 +139,81 @@
   .panel {
     background:var(--bg); display:flex; flex-direction:column;
     align-items:center; justify-content:center;
-    padding:32px; position:relative; overflow:hidden;
+    padding:24px; position:relative; overflow:hidden;
   }
   .panel::before {
     content:''; position:absolute; inset:0;
     background:radial-gradient(ellipse at center,rgba(200,255,0,.03) 0%,transparent 70%);
     pointer-events:none;
   }
-  .vel-tag { font-size:11px; font-weight:700; letter-spacing:4px; text-transform:uppercase; color:var(--muted); margin-bottom:16px; }
+  .vel-tag {
+    font-size:var(--fs-tag); font-weight:700;
+    letter-spacing:4px; text-transform:uppercase;
+    color:var(--muted); margin-bottom:12px;
+  }
   .vel-num {
     font-family:'Bebas Neue',sans-serif;
-    font-size:clamp(72px,13vw,152px); line-height:.9; letter-spacing:2px;
+    /* 모바일: 13vw, PC: 최대 200px (화면의 13vw가 충분히 큼) */
+    font-size:clamp(60px, 13vw, 200px);
+    line-height:.9; letter-spacing:2px;
     color:var(--text); transition:color .08s;
     font-variant-numeric:tabular-nums; min-width:4ch; text-align:right;
   }
   .vel-num.peak { color:var(--accent); text-shadow:0 0 40px rgba(200,255,0,.3); }
-  .vel-unit { font-size:18px; font-weight:300; color:var(--muted); margin-top:8px; letter-spacing:2px; }
+  .vel-unit {
+    font-size:var(--fs-unit); font-weight:300;
+    color:var(--muted); margin-top:8px; letter-spacing:2px;
+  }
   @keyframes peakFlash {
     0%{opacity:1;transform:scale(1)} 20%{opacity:.7;transform:scale(1.02)} 100%{opacity:1;transform:scale(1)}
   }
   .flash { animation:peakFlash .4s ease; }
   .cand-bar {
-    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
     font-size:10px; letter-spacing:2px; color:var(--orange);
     opacity:0; transition:opacity .2s; text-transform:uppercase; white-space:nowrap;
   }
   .cand-bar.on { opacity:1; }
 
-  /* FOOTER */
+  /* ── FOOTER ── */
   footer {
     display:grid; grid-template-columns:repeat(4,1fr);
     background:var(--surface); border-top:1px solid var(--border);
   }
-  .stat { padding:8px 16px; border-right:1px solid var(--border); font-size:11px; }
+  .stat { padding:var(--pad-stat); border-right:1px solid var(--border); }
   .stat:last-child { border-right:none; }
-  .skey { color:var(--muted); text-transform:uppercase; font-size:9px; letter-spacing:1px; margin-bottom:2px; }
-  .sval { color:var(--text); font-size:12px; }
+  .skey { color:var(--muted); text-transform:uppercase; font-size:var(--fs-skey); letter-spacing:1px; margin-bottom:2px; }
+  .sval { color:var(--text); font-size:var(--fs-sval); font-family:'JetBrains Mono',monospace; }
 
-  /* MODAL */
+  /* ── MIRROR MODAL ── */
   .overlay {
     display:none; position:fixed; inset:0;
-    background:rgba(0,0,0,.82); backdrop-filter:blur(6px);
-    align-items:center; justify-content:center; z-index:200;
+    background:rgba(0,0,0,.85); backdrop-filter:blur(6px);
+    align-items:center; justify-content:center; z-index:200; padding:16px;
   }
   .overlay.show { display:flex; }
   .mbox {
     background:var(--surface); border:1px solid var(--border);
-    padding:28px 32px; width:360px; position:relative;
+    padding:24px 28px; width:min(360px,100%); position:relative;
   }
   .mtitle {
-    font-family:'Bebas Neue',sans-serif; font-size:22px;
-    letter-spacing:4px; color:var(--accent); margin-bottom:20px;
+    font-family:'Bebas Neue',sans-serif; font-size:26px;
+    letter-spacing:4px; color:var(--accent); margin-bottom:18px;
   }
-  .mtabs { display:flex; border:1px solid var(--border); border-radius:2px; overflow:hidden; margin-bottom:20px; }
+  .mtabs { display:flex; border:1px solid var(--border); border-radius:2px; overflow:hidden; margin-bottom:18px; }
   .mtab {
-    flex:1; font-family:'JetBrains Mono',monospace; font-size:11px;
-    font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:8px;
-    border:none; background:transparent; color:var(--muted); cursor:pointer; transition:all .15s;
+    flex:1; font-family:'JetBrains Mono',monospace; font-size:12px;
+    font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:9px;
+    border:none; background:transparent; color:var(--text); cursor:pointer; transition:all .15s;
   }
   .mtab+.mtab { border-left:1px solid var(--border); }
   .mtab.sel   { background:var(--accent); color:#000; }
 
   .tpanel { display:none; }
   .tpanel.on { display:block; }
-  .mdesc { font-size:11px; line-height:1.9; color:#666; margin-bottom:16px; }
+  .mdesc { font-size:12px; line-height:1.9; color:#777; margin-bottom:16px; }
   .mbtn {
-    width:100%; padding:10px; margin-bottom:12px; font-size:12px; letter-spacing:2px;
+    width:100%; padding:10px; margin-bottom:12px; font-size:13px; letter-spacing:2px;
     border:1px solid var(--border); background:transparent; color:var(--text);
     cursor:pointer; font-family:'JetBrains Mono',monospace; font-weight:700;
     text-transform:uppercase; transition:all .15s;
@@ -155,8 +224,10 @@
     color:var(--accent); text-align:center; text-shadow:0 0 30px var(--glow);
     margin:8px 0 4px; min-height:80px; line-height:1;
   }
-  .mhint { font-size:10px; letter-spacing:1px; color:var(--muted); text-align:center; min-height:16px; margin-top:4px; }
-  .mhint.ok { color:var(--accent); } .mhint.err { color:var(--danger); } .mhint.warn { color:var(--orange); }
+  .mhint { font-size:11px; letter-spacing:1px; color:var(--muted); text-align:center; min-height:18px; margin-top:4px; }
+  .mhint.ok   { color:var(--accent); }
+  .mhint.err  { color:var(--danger); }
+  .mhint.warn { color:var(--orange); }
 
   .cinput-wrap { display:flex; gap:8px; margin-bottom:12px; }
   .cinput {
@@ -168,19 +239,22 @@
   .cinput:focus { border-color:var(--accent); }
   .cinput::placeholder { color:var(--muted); font-size:24px; letter-spacing:4px; }
   .xbtn {
-    position:absolute; top:12px; right:16px;
-    font-size:16px; border:none; padding:4px 8px;
-    color:var(--muted); background:transparent;
+    position:absolute; top:12px; right:14px;
+    font-size:18px; border:none; padding:4px 8px;
+    color:var(--muted); background:transparent; cursor:pointer;
   }
-  .xbtn:hover { color:var(--text); border:none; }
+  .xbtn:hover { color:var(--text); }
 
-  /* viewer mode: hide host-only elements */
   body.vmode .honly { display:none !important; }
 
   /* no-serial */
-  #noser { display:none; position:fixed; inset:0; background:rgba(0,0,0,.88); align-items:center; justify-content:center; z-index:300; backdrop-filter:blur(4px); }
+  #noser {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,.9); align-items:center; justify-content:center;
+    z-index:300; backdrop-filter:blur(4px); padding:16px;
+  }
   #noser.show { display:flex; }
-  .wbox { border:1px solid var(--danger); padding:32px 40px; max-width:440px; text-align:center; }
+  .wbox { border:1px solid var(--danger); padding:28px 32px; max-width:440px; text-align:center; }
   .wbox h2 { color:var(--danger); font-family:'Bebas Neue'; font-size:28px; letter-spacing:3px; margin-bottom:12px; }
   .wbox p  { color:#888; font-size:13px; line-height:1.8; }
 </style>
@@ -189,7 +263,9 @@
 
 <header>
   <div class="brand">VelTrain</div>
-  <div class="sep"></div>
+  <div class="sep honly"></div>
+
+  <!-- ① HOST 전용 컨트롤 -->
   <div style="display:flex;align-items:center;gap:8px" class="honly">
     <div class="dot" id="dot"></div>
     <button id="conBtn" onclick="toggleConn()">Connect</button>
@@ -203,10 +279,14 @@
     <button class="tog sel" id="tDef"  onclick="setMode(1)">Default</button>
     <button class="tog"     id="tLung" onclick="setMode(2)">Lunge</button>
   </div>
-  <div class="sep"></div>
-  <div class="dot" id="mDot"></div>
-  <button id="mirBtn" onclick="openMirror()">Mirror</button>
-  <div class="vbadge" id="vbadge">Viewer</div>
+
+  <!-- ④ Mirror 버튼: 별도 .mir-row 로 분리해 모바일 오버플로우 방지 -->
+  <div class="mir-row">
+    <div class="sep"></div>
+    <div class="dot" id="mDot"></div>
+    <button id="mirBtn" onclick="openMirror()">Mirror</button>
+    <div class="vbadge" id="vbadge">Viewer</div>
+  </div>
 </header>
 
 <main>
@@ -225,7 +305,7 @@
 
 <footer>
   <div class="stat"><div class="skey">Status</div><div class="sval" id="sStat">Idle</div></div>
-  <div class="stat"><div class="skey">Height</div><div class="sval" id="sHeight">— cm</div></div>
+  <div class="stat"><div class="skey">Height</div><div class="sval" id="sHeight">—</div></div>
   <div class="stat"><div class="skey">Lift</div>  <div class="sval" id="sLift">—</div></div>
   <div class="stat"><div class="skey">Reps</div>  <div class="sval" id="sRep">0</div></div>
 </footer>
@@ -240,29 +320,20 @@
       <button class="mtab"     id="tabV" onclick="switchTab('v')">VIEWER</button>
     </div>
 
-    <!-- HOST -->
     <div class="tpanel on" id="panH">
-      <p class="mdesc">
-        이 PC를 HOST로 설정합니다.<br>
-        생성된 4자리 코드를 폰에서 입력하면<br>
-        측정 화면이 실시간 미러링됩니다.
-      </p>
+      <p class="mdesc">이 기기를 HOST로 설정합니다.<br>생성된 코드를 폰에서 입력하면 실시간 미러링됩니다.</p>
       <button class="mbtn" onclick="startHost()">코드 생성</button>
       <div class="codedisp" id="hostCode">—</div>
       <div class="mhint" id="hHint">버튼을 눌러 코드를 생성하세요</div>
     </div>
 
-    <!-- VIEWER -->
     <div class="tpanel" id="panV">
-      <p class="mdesc">
-        HOST PC에서 생성된 4자리 코드를<br>
-        아래에 입력하고 연결하세요.
-      </p>
+      <p class="mdesc">HOST 기기에서 생성된 코드를 입력하고 연결하세요.</p>
       <div class="cinput-wrap">
         <input class="cinput" id="codeIn" type="tel" maxlength="4" placeholder="1234"
                oninput="this.value=this.value.replace(/\D/g,'')"
                onkeydown="if(event.key==='Enter')joinViewer()">
-        <button style="padding:8px 14px" onclick="joinViewer()">연결</button>
+        <button style="padding:8px 14px;font-size:13px" onclick="joinViewer()">연결</button>
       </div>
       <div class="mhint" id="vHint">HOST의 코드를 입력하세요</div>
     </div>
@@ -290,8 +361,23 @@ const CFG = {
   PEAK_HW:2, DESC_N:3, VEL_MAX:1.5,
 };
 
+// ① PeerJS 설정 — 안정적인 구글 STUN 서버 명시 + 고유 접두사
+// 기본 서버(0.peerjs.com)는 그대로 사용하되 ICE 서버를 명시해 NAT 통과 개선
+const PEER_CFG = {
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+    ]
+  },
+  debug: 0,
+};
+// 코드 충돌 방지를 위해 더 고유한 네임스페이스 사용
+const PEER_NS = 'vt2-';   // veltrain v2
+
 // ══════════════════════════════════════
-//  TTS — Google 음성 우선, rate 0.85
+//  TTS
 // ══════════════════════════════════════
 let _voice = null;
 function _loadVoice() {
@@ -309,13 +395,10 @@ _loadVoice();
 
 function speak(val) {
   speechSynthesis.cancel();
-  setTimeout(() => {            // cancel 직후 바로 speak하면 씹히므로 50ms 딜레이
+  setTimeout(() => {
     const u = new SpeechSynthesisUtterance(val.toFixed(2));
     if (_voice) u.voice = _voice;
-    u.lang = 'en-US';
-    u.rate = 0.85;              // gTTS 기본 속도와 유사
-    u.pitch = 1.0;
-    u.volume = 1.0;
+    u.lang='en-US'; u.rate=0.85; u.pitch=1.0; u.volume=1.0;
     speechSynthesis.speak(u);
   }, 50);
 }
@@ -336,20 +419,20 @@ let inLift=false, savT=0, descN=0, candLen=null, initSw=true, isMaxL=false;
 // ══════════════════════════════════════
 function parseRaw(raw) {
   try {
-    let v = parseInt(raw.slice(4), 10);
+    let v=parseInt(raw.slice(4),10);
     if (isNaN(v)) return null;
-    if (v > CFG.OVERFLOW_THR) v -= CFG.OVERFLOW_WRAP;
-    const cm = v * CFG.FACTOR;
-    if (lenInit === null) { lenInit = cm; return 0; }
-    return cm - lenInit;
-  } catch { return null; }
+    if (v>CFG.OVERFLOW_THR) v-=CFG.OVERFLOW_WRAP;
+    const cm=v*CFG.FACTOR;
+    if (lenInit===null){lenInit=cm;return 0;}
+    return cm-lenInit;
+  } catch{return null;}
 }
 
 // ══════════════════════════════════════
 //  REP TRACKER
 // ══════════════════════════════════════
-function repReset()   { repV=[0]; repL=[0]; }
-function repAdd(v,l)  { repV.push(v); repL.push(l); }
+function repReset()  {repV=[0];repL=[0];}
+function repAdd(v,l) {repV.push(v);repL.push(l);}
 function repPeak() {
   const mv=repV.indexOf(Math.max(...repV));
   const lo=Math.max(0,mv-CFG.PEAK_HW), hi=Math.min(repV.length,mv+CFG.PEAK_HW+1);
@@ -357,9 +440,9 @@ function repPeak() {
 }
 function repMean() {
   const ml=repL.indexOf(Math.max(...repL)), s=repV.slice(0,ml);
-  return s.length ? s.reduce((a,b)=>a+b,0)/s.length : 0;
+  return s.length?s.reduce((a,b)=>a+b,0)/s.length:0;
 }
-function repMaxL() { return repL.length ? Math.max(...repL) : 0; }
+function repMaxL() {return repL.length?Math.max(...repL):0;}
 
 // ══════════════════════════════════════
 //  AUDIO
@@ -418,58 +501,57 @@ function setCand(len) {
 //  EMIT PEAK
 // ══════════════════════════════════════
 function emitPeak(now) {
-  const val = showMode===1 ? repPeak() : repMean();
-  if (val < CFG.MIN_PEAK_VEL) { repReset(); savT=now; return; }
-  lastPeak = val;
+  const val=showMode===1?repPeak():repMean();
+  if (val<CFG.MIN_PEAK_VEL){repReset();savT=now;return;}
+  lastPeak=val;
   showPeak(val); beep(); speak(val);
   repReset(); savT=now;
   repCnt++; document.getElementById('sRep').textContent=repCnt;
-  // 미러 브로드캐스트 (새 피크)
-  mirrorSend({ vel:0, len:null, peak:val, newPeak:true, repCnt });
+  mirrorSend({type:'peak', val, repCnt});
 }
 
 // ══════════════════════════════════════
-//  MODE 1
+//  MODE 1 (Default)
 // ══════════════════════════════════════
 function mode1(vel, vs, len, now) {
-  if (len > CFG.MIN_LIFT) {
+  if (len>CFG.MIN_LIFT) {
     if (!inLift) {
       inLift=true; savT=now; descN=0; candLen=null; repReset();
     } else {
       repAdd(vel,len);
-      if (vs<0) { descN++; }
-      else { if (candLen!==null) candLen=null; descN=0; }
-      if (descN>=CFG.DESC_N) { candLen=repMaxL(); descN=0; }
-      if (candLen!==null && len<=candLen/2) {
+      if (vs<0){descN++;}
+      else{if(candLen!==null)candLen=null;descN=0;}
+      if (descN>=CFG.DESC_N){candLen=repMaxL();descN=0;}
+      if (candLen!==null&&len<=candLen/2) {
         if (now-savT>=CFG.MIN_REP_TIME) emitPeak(now);
-        inLift=false; descN=0; candLen=null;
+        inLift=false;descN=0;candLen=null;
       }
     }
   } else {
     if (inLift) {
       if (now-savT>=CFG.MIN_REP_TIME) emitPeak(now);
-      inLift=false; descN=0; candLen=null; initSw=true;
+      inLift=false;descN=0;candLen=null;initSw=true;
     }
   }
   setCand(candLen); updStatus(len);
 }
 
 // ══════════════════════════════════════
-//  MODE 2
+//  MODE 2 (Barbell Lunge)
 // ══════════════════════════════════════
 function mode2(vel, len, now) {
-  if (len>CFG.MIN_LIFT && initSw && !inLift) {
-    inLift=true; initSw=false; savT=now; repReset(); updStatus(len); return;
+  if (len>CFG.MIN_LIFT&&initSw&&!inLift) {
+    inLift=true;initSw=false;savT=now;repReset();updStatus(len);return;
   }
   if (inLift) {
     repAdd(vel,len);
-    if (now-savT>CFG.MIN_REP_TIME && isMaxL) {
+    if (now-savT>CFG.MIN_REP_TIME&&isMaxL) {
       const p=repPeak();
       if (p>=CFG.MIN_PEAK_VEL) {
-        lastPeak=p; showPeak(p); beep(); speak(p);
-        repReset(); savT=now;
-        repCnt++; document.getElementById('sRep').textContent=repCnt;
-        mirrorSend({ vel:0, len:null, peak:p, newPeak:true, repCnt });
+        lastPeak=p;showPeak(p);beep();speak(p);
+        repReset();savT=now;
+        repCnt++;document.getElementById('sRep').textContent=repCnt;
+        mirrorSend({type:'peak', val:p, repCnt});
       }
     }
   }
@@ -483,39 +565,43 @@ function processLine(raw) {
   const len=parseRaw(raw); if (len===null) return;
   const vs=(len-lenOld)*0.01/0.05, vel=Math.max(vs,0);
   if (lenBuf.length>=2)
-    isMaxL=(len-lenBuf[lenBuf.length-1])<0&&(lenBuf[lenBuf.length-1]-lenBuf[lenBuf.length-2])>0&&len>CFG.MIN_LIFT;
+    isMaxL=(len-lenBuf[lenBuf.length-1])<0&&
+           (lenBuf[lenBuf.length-1]-lenBuf[lenBuf.length-2])>0&&
+           len>CFG.MIN_LIFT;
   else isMaxL=false;
   lenBuf.push(len); if (lenBuf.length>200) lenBuf.shift();
   updCurr(vel);
   const now=performance.now()/1000;
   if (liftMode===1) mode1(vel,vs,len,now); else mode2(vel,len,now);
   lenOld=len;
-  // 매 샘플 미러 전송 (현재 속도 + 높이)
-  mirrorSend({ vel, len, peak:lastPeak, newPeak:false,
-    status:document.getElementById('sStat').textContent, repCnt });
+  // 매 샘플 미러 전송
+  mirrorSend({type:'sample', vel, len,
+    status:document.getElementById('sStat').textContent,
+    lift:document.getElementById('sLift').textContent,
+    peak:lastPeak, repCnt});
 }
 
 // ══════════════════════════════════════
 //  WEB SERIAL
 // ══════════════════════════════════════
-async function toggleConn() { if (connected) await doDisc(); else await doConn(); }
+async function toggleConn(){if(connected)await doDisc();else await doConn();}
 async function doConn() {
-  if (!('serial' in navigator)) { document.getElementById('noser').classList.add('show'); return; }
-  if (!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+  if(!('serial' in navigator)){document.getElementById('noser').classList.add('show');return;}
+  if(!actx) actx=new(window.AudioContext||window.webkitAudioContext)();
   try {
     port=await navigator.serial.requestPort();
     await port.open({baudRate:CFG.BAUDRATE});
-    connected=true; running=true;
-    lenInit=null; lenOld=0; lenBuf.length=0;
-    inLift=false; descN=0; candLen=null; repReset();
+    connected=true;running=true;
+    lenInit=null;lenOld=0;lenBuf.length=0;
+    inLift=false;descN=0;candLen=null;repReset();
     setConnUI(true); readLoop();
-  } catch(e) { if (e.name!=='NotFoundError') { console.error(e); setConnUI(false,true); } }
+  } catch(e){if(e.name!=='NotFoundError'){console.error(e);setConnUI(false,true);}}
 }
 async function doDisc() {
   running=false;
-  try { if (reader){await reader.cancel();reader=null;} } catch{}
-  try { if (port)  {await port.close();   port=null;}   } catch{}
-  connected=false; setConnUI(false);
+  try{if(reader){await reader.cancel();reader=null;}}catch{}
+  try{if(port){await port.close();port=null;}}catch{}
+  connected=false;setConnUI(false);
 }
 async function readLoop() {
   const dec=new TextDecoderStream();
@@ -523,61 +609,88 @@ async function readLoop() {
   reader=dec.readable.getReader();
   let buf='';
   try {
-    while (running) {
-      const {value,done}=await reader.read(); if (done) break;
+    while(running){
+      const{value,done}=await reader.read();if(done)break;
       buf+=value;
-      const ls=buf.split('\n'); buf=ls.pop();
-      for (const l of ls){const t=l.trim();if(t)processLine(t);}
+      const ls=buf.split('\n');buf=ls.pop();
+      for(const l of ls){const t=l.trim();if(t)processLine(t);}
     }
-  } catch(e){if(running)console.error(e);}
+  }catch(e){if(running)console.error(e);}
   finally{reader=null;connected=false;setConnUI(false);}
 }
 
 // ══════════════════════════════════════
 //  MIRROR — PeerJS
+//
+//  ① 수정사항:
+//  - PEER_NS: 고유 접두사로 ID 충돌 최소화
+//  - PEER_CFG: 구글 STUN 3개 명시 → NAT 통과 개선
+//  - conn.on('open') 후 mConns 추가 (이전 버그 유지)
+//  - 메시지 타입 분리 (type:'sample' | 'peak') → applyMirror 명확화
 // ══════════════════════════════════════
 let mPeer=null, mConns=[], isViewer=false;
 
 function mirrorSend(data) {
+  if (!mConns.length) return;
   mConns=mConns.filter(c=>c.open);
-  mConns.forEach(c=>{try{c.send(data);}catch{}});
+  mConns.forEach(c=>{try{c.send(data);}catch(e){}});
 }
 
 function applyMirror(d) {
-  updCurr(d.vel);
-  if (d.len!==null) document.getElementById('sHeight').textContent=d.len.toFixed(2)+' cm';
-  if (d.status) document.getElementById('sStat').textContent=d.status;
-  document.getElementById('sRep').textContent=d.repCnt||0;
-  if (d.newPeak && d.peak!==null) { showPeak(d.peak); beep(); speak(d.peak); }
-  else if (d.peak!==null) document.getElementById('peakNum').textContent=d.peak.toFixed(2);
+  if (d.type==='sample') {
+    updCurr(d.vel);
+    if (d.len!==null&&d.len!==undefined)
+      document.getElementById('sHeight').textContent=d.len.toFixed(2)+' cm';
+    if (d.status) document.getElementById('sStat').textContent=d.status;
+    if (d.lift)   document.getElementById('sLift').textContent=d.lift;
+    document.getElementById('sRep').textContent=d.repCnt||0;
+    if (d.peak!==null&&d.peak!==undefined)
+      document.getElementById('peakNum').textContent=d.peak.toFixed(2);
+  } else if (d.type==='peak') {
+    showPeak(d.val); beep(); speak(d.val);
+    document.getElementById('sRep').textContent=d.repCnt||0;
+  }
 }
 
 function startHost() {
   if (mPeer){mPeer.destroy();mPeer=null;} mConns=[];
   const code=String(Math.floor(1000+Math.random()*9000));
   document.getElementById('hostCode').textContent='…';
-  hHint('연결 중...','');
-  mPeer=new Peer('veltrain-'+code);
-  mPeer.on('open',()=>{
+  hHint('서버에 연결 중...','');
+
+  mPeer=new Peer(PEER_NS+code, PEER_CFG);   // ← STUN 설정 포함
+
+  mPeer.on('open', id=>{
     document.getElementById('hostCode').textContent=code;
     hHint('폰에서 이 코드를 입력하세요','ok');
-    document.getElementById('mDot').className='dot mirror';
+    document.getElementById('mDot').className='dot mir';
     document.getElementById('mirBtn').className='mir-on';
   });
-  mPeer.on('connection',conn=>{
-    // conn.open 이벤트 이후에 mConns에 추가해야 c.open 필터를 통과함
+
+  mPeer.on('connection', conn=>{
+    // ← conn.open 이후에만 mConns에 추가 (핵심 버그 수정)
     conn.on('open', ()=>{
       mConns.push(conn);
       hHint(`Viewer ${mConns.length}대 연결됨`,'ok');
+      console.log('[Mirror] Viewer connected, total:', mConns.length);
     });
-    conn.on('close',()=>{ mConns=mConns.filter(c=>c!==conn);
-      hHint(mConns.length?`Viewer ${mConns.length}대 연결됨`:'폰에서 이 코드를 입력하세요',mConns.length?'ok':'');
+    conn.on('close', ()=>{
+      mConns=mConns.filter(c=>c!==conn);
+      hHint(mConns.length?`Viewer ${mConns.length}대 연결됨`:'폰에서 이 코드를 입력하세요', mConns.length?'ok':'');
     });
-    conn.on('error', e=>console.error('conn error:',e));
+    conn.on('error', e=>console.error('[Mirror] conn err:', e));
   });
-  mPeer.on('error',e=>{
-    if (e.type==='unavailable-id') startHost();
-    else { hHint('오류: '+e.message,'err'); console.error(e); }
+
+  mPeer.on('error', e=>{
+    if (e.type==='unavailable-id') {
+      // ID 충돌 → 자동 재시도
+      console.warn('[Mirror] ID collision, retrying...');
+      mPeer.destroy(); mPeer=null;
+      setTimeout(startHost, 300);
+    } else {
+      hHint('오류: '+e.type,'err');
+      console.error('[Mirror] peer err:', e);
+    }
   });
 }
 
@@ -585,28 +698,53 @@ function joinViewer() {
   const code=document.getElementById('codeIn').value.trim();
   if (code.length!==4){vHint('4자리 코드를 입력하세요','err');return;}
   if (mPeer){mPeer.destroy();mPeer=null;}
-  vHint('연결 중...','');
-  mPeer=new Peer();
-  mPeer.on('open',()=>{
-    const conn=mPeer.connect('veltrain-'+code,{reliable:true});
-    conn.on('open',()=>{
+  vHint('서버에 연결 중...','');
+
+  mPeer=new Peer(PEER_CFG);   // ← 자동 ID + STUN 설정
+
+  mPeer.on('open', ()=>{
+    vHint('HOST에 연결 중...','');
+    const conn=mPeer.connect(PEER_NS+code, {reliable:true, serialization:'json'});
+
+    const timeout=setTimeout(()=>{
+      if (!isViewer) vHint('응답 없음. 코드를 확인하세요','err');
+    }, 8000);
+
+    conn.on('open', ()=>{
+      clearTimeout(timeout);
       isViewer=true;
       vHint('연결됨 ✓','ok');
-      document.getElementById('mDot').className='dot mirror';
+      document.getElementById('mDot').className='dot mir';
       document.getElementById('mirBtn').className='mir-on';
       document.getElementById('vbadge').classList.add('show');
       document.body.classList.add('vmode');
       closeMirror();
+      console.log('[Mirror] Connected to HOST');
     });
-    conn.on('data', d=>applyMirror(d));
-    conn.on('close',()=>{vHint('연결 끊김','warn');
+
+    conn.on('data', d=>{
+      try { applyMirror(d); } catch(e){ console.error('[Mirror] applyMirror err:',e); }
+    });
+
+    conn.on('close', ()=>{
+      isViewer=false;
+      vHint('연결 끊김','warn');
       document.getElementById('mDot').className='dot';
       document.getElementById('mirBtn').className='';
+      document.getElementById('vbadge').classList.remove('show');
     });
-    conn.on('error',e=>vHint('연결 오류','err'));
+
+    conn.on('error', e=>{
+      clearTimeout(timeout);
+      vHint('연결 오류: '+e.type,'err');
+      console.error('[Mirror] conn err:', e);
+    });
   });
-  mPeer.on('error',e=>{
-    vHint(e.type==='peer-unavailable'?'코드가 없거나 HOST가 준비되지 않음':'오류: '+e.message,'err');
+
+  mPeer.on('error', e=>{
+    const msg=e.type==='peer-unavailable'?'코드가 없거나 HOST가 준비되지 않음':'오류: '+e.type;
+    vHint(msg,'err');
+    console.error('[Mirror] peer err:', e);
   });
 }
 
@@ -614,7 +752,7 @@ function hHint(m,t){const e=document.getElementById('hHint');e.textContent=m;e.c
 function vHint(m,t){const e=document.getElementById('vHint');e.textContent=m;e.className='mhint'+(t?' '+t:'');}
 
 // ══════════════════════════════════════
-//  MIRROR / CONN UI
+//  UI
 // ══════════════════════════════════════
 function openMirror()  {document.getElementById('mirModal').classList.add('show');}
 function closeMirror() {document.getElementById('mirModal').classList.remove('show');}
@@ -624,20 +762,20 @@ function switchTab(t) {
     document.getElementById('tab'+x.toUpperCase()).classList.toggle('sel',x===t);
   });
 }
-function setConnUI(on,err=false){
+function setConnUI(on,err=false) {
   document.getElementById('dot').className='dot'+(on?' on':err?' err':'');
   document.getElementById('conBtn').textContent=on?'Disconnect':'Connect';
   document.getElementById('conBtn').className=on?'live':'';
   document.getElementById('sStat').textContent=on?'Waiting':'Idle';
   updStatus(null);
 }
-function setShow(v){
+function setShow(v) {
   showMode=v;
   document.getElementById('tPeak').className='tog'+(v===1?' sel':'');
   document.getElementById('tMean').className='tog'+(v===2?' sel':'');
   document.getElementById('peakTag').textContent=v===1?'Peak Velocity':'Mean Velocity';
 }
-function setMode(v){
+function setMode(v) {
   liftMode=v;
   document.getElementById('tDef').className='tog'+(v===1?' sel':'');
   document.getElementById('tLung').className='tog'+(v===2?' sel':'');
