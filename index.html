@@ -76,8 +76,19 @@ button:disabled{opacity:.35;pointer-events:none;color:var(--txt);}
 .mir-row{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 @media(max-width:767px){.mir-row{margin-left:auto;}}
 
-/* MAIN */
-main{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--brd);overflow:hidden;}
+/* MAIN — PC: 좌우 2칸 / 모바일: 세로 단일 컬럼 (peak 크게, current 작게) */
+main{display:grid;gap:1px;background:var(--brd);overflow:hidden;
+  grid-template-columns:1fr 1fr;   /* PC 기본 */
+}
+@media(max-width:767px){
+  main{ grid-template-columns:1fr; grid-template-rows:1fr auto; }
+  /* 모바일: current 패널은 작게 고정 */
+  .panel.curr{ flex-direction:row; justify-content:center; align-items:center;
+    gap:12px; padding:10px 20px; flex:0 0 auto; }
+  .panel.curr .vel-tag{ margin-bottom:0; font-size:9px; }
+  .panel.curr .vel-num{ font-size:clamp(28px,8vw,48px); min-width:auto; }
+  .panel.curr .vel-unit{ margin-top:0; font-size:13px; }
+}
 .panel{
   background:var(--bg);display:flex;flex-direction:column;
   align-items:center;justify-content:center;
@@ -169,6 +180,11 @@ footer{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surf);b
 .cinput::placeholder{color:var(--mut);font-size:20px;}
 .xbtn{position:absolute;top:12px;right:14px;font-size:18px;border:none;padding:4px 8px;color:var(--mut);background:transparent;cursor:pointer;}
 .xbtn:hover{color:var(--txt);}
+/* 모바일: Mirror 모달에서 HOST 탭 숨기고 VIEWER만 표시 */
+@media(max-width:767px){
+  #tabH { display:none; }
+  /* openMirror()에서 JS로 VIEWER 탭 자동 선택 */
+}
 body.vmode .honly{display:none !important;}
 #noser{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);align-items:center;justify-content:center;z-index:300;backdrop-filter:blur(4px);padding:16px;}
 #noser.show{display:flex;}
@@ -210,8 +226,7 @@ body.vmode .honly{display:none !important;}
     <div class="vel-unit">m / s</div>
     <div class="cand-bar" id="candBar">▼ candidate</div>
   </div>
-  <div class="panel">
-    <div class="vel-tag">Current Velocity</div>
+  <div class="panel curr">
     <div class="vel-num" id="currNum">0.00</div>
     <div class="vel-unit">m / s</div>
   </div>
@@ -247,8 +262,9 @@ body.vmode .honly{display:none !important;}
     <div class="tpanel" id="panV">
       <p class="mdesc">HOST 기기에서 생성된 코드를<br>아래에 입력하고 연결하세요.</p>
       <div class="cinput-wrap">
-        <input class="cinput" id="codeIn" maxlength="6" placeholder="ABC123"
-               oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
+        <input class="cinput" id="codeIn" maxlength="4" placeholder="1234"
+               inputmode="numeric" pattern="[0-9]*"
+               oninput="this.value=this.value.replace(/\D/g,'')"
                onkeydown="if(event.key==='Enter')joinViewer()">
         <button style="padding:8px 14px;font-size:13px" onclick="joinViewer()">연결</button>
       </div>
@@ -658,12 +674,9 @@ let mqttClient = null;
 let mqttTopic  = null;
 let isViewer   = false;
 
-// 6자리 영숫자 코드 생성 (혼동 문자 제외)
+// 4자리 숫자 코드 생성
 function genCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let c = '';
-  for (let i = 0; i < 6; i++) c += chars[Math.floor(Math.random() * chars.length)];
-  return c;
+  return String(Math.floor(1000 + Math.random() * 9000));
 }
 
 function mqttDisconnect() {
@@ -729,8 +742,8 @@ function startHost() {
 
 // ── VIEWER: 코드 입력 후 구독 시작
 function joinViewer() {
-  const code = document.getElementById('codeIn').value.trim().toUpperCase();
-  if (code.length !== 6) { vHint('6자리 코드를 입력하세요', 'err'); return; }
+  const code = document.getElementById('codeIn').value.trim();
+  if (code.length !== 4 || !/^\d{4}$/.test(code)) { vHint('4자리 숫자를 입력하세요', 'err'); return; }
 
   mqttDisconnect();
   mqttTopic = TOPIC_PREFIX + code;
@@ -773,7 +786,11 @@ function joinViewer() {
 // ════════════════════════════════
 function hHint(m,t){const e=document.getElementById('hHint');e.textContent=m;e.className='mhint'+(t?' '+t:'');}
 function vHint(m,t){const e=document.getElementById('vHint');e.textContent=m;e.className='mhint'+(t?' '+t:'');}
-function openMirror() { document.getElementById('mirModal').classList.add('show'); }
+function openMirror() {
+  document.getElementById('mirModal').classList.add('show');
+  // 모바일(767px 이하)이면 VIEWER 탭 자동 선택
+  if (window.innerWidth <= 767) switchTab('v');
+}
 function closeMirror(){ document.getElementById('mirModal').classList.remove('show'); }
 function switchTab(t) {
   ['h','v'].forEach(x => {
