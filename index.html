@@ -309,11 +309,12 @@ const CFG = {
 let audioUnlocked = false;
 let actx = null;
 
-// 핵심 변경점: 단일 Audio 객체를 전역으로 생성하여 재사용 (모바일 정책 우회)
+// 모바일 정책 우회를 위한 단일 전역 오디오 객체
 const globalTtsAudio = new Audio();
 
-// 모바일 여부 감지
-const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+// 모바일 및 태블릿(아이패드 데스크탑 모드 포함) 감지
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || 
+                 (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
 
 function unlockAudio() {
   if (audioUnlocked) return;
@@ -328,11 +329,11 @@ function unlockAudio() {
     src.buffer = buf; src.connect(actx.destination); src.start(0);
   } catch(e) { console.warn('AudioContext unlock:', e); }
 
-  // 2) iOS/Android Audio() unlock — 무음 오디오를 재생하여 권한 획득
+  // 2) iOS/Android/태블릿 Audio() unlock — 무음 오디오 재생
   globalTtsAudio.src = 'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaFBsdXMgMi4wLjAuMTEgV2luZG93cwBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
   globalTtsAudio.play().catch(() => {});
 
-  // 3) speechSynthesis fallback 잠금 해제 (iOS 무음 utterance)
+  // 3) speechSynthesis fallback 잠금 해제
   try {
     const silent = new SpeechSynthesisUtterance(' ');
     silent.volume = 0; silent.rate = 2;
@@ -343,7 +344,7 @@ function unlockAudio() {
   console.log('[Audio] Unlocked');
 }
 
-// iOS Safari: speechSynthesis가 일정 시간 후 멈추는 버그 방지
+// iOS Safari 버그 방지 (주기적 호출)
 if (isMobile) {
   setInterval(() => {
     if (!speechSynthesis.speaking && audioUnlocked) {
@@ -389,11 +390,9 @@ function speak(val) {
     '&prev=input' +
     '&ttsspeed=1';
 
-  // 핵심 변경점: 사용자 클릭으로 잠금 해제된 단일 객체의 src만 교체하여 재생
   globalTtsAudio.pause();
   globalTtsAudio.src = url;
   globalTtsAudio.play().catch(() => {
-    // 네트워크 차단 등 근본적 실패 시에만 Web Speech API로 fallback
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
@@ -453,7 +452,6 @@ function repMaxL() { return Math.max.apply(null, repL); }
 // ════════════════════════════════
 function beep() {
   try {
-    // PC: actx가 없으면 버튼 클릭 컨텍스트에서 생성
     if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === 'suspended') actx.resume();
     const o = actx.createOscillator(), g = actx.createGain();
