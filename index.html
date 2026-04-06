@@ -403,10 +403,12 @@ function col(vel) {
 }
 
 // ════════════════════════════════
-//  BAR CHART
-//  ※ 수정: roundRect 제거 (미지원 브라우저에서 TypeError 발생
-//    → 예외가 serial read loop까지 전파돼 먹통 유발)
-//    모든 canvas 코드를 try-catch로 감쌈
+//  BAR CHART — 개선판
+//  - 그라디언트 막대 (위 밝음, 아래 투명)
+//  - 막대 상단 연결 꺾은선
+//  - 세션 평균 점선
+//  - rep 번호 라벨
+//  - 모든 canvas 코드 try-catch
 // ════════════════════════════════
 const repHist = [];
 const MAX_BARS = 20;
@@ -428,8 +430,8 @@ function drawChart() {
   const H   = wrap.clientHeight;
   if (W === 0 || H === 0) return;
 
-  // 크기가 바뀔 때만 canvas 크기 재설정 (매번 리셋하면 깜빡임)
-  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+  if (canvas.width  !== Math.round(W * dpr) ||
+      canvas.height !== Math.round(H * dpr)) {
     canvas.width  = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
     canvas.style.width  = W + 'px';
@@ -439,53 +441,103 @@ function drawChart() {
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
-
   if (!repHist.length) return;
 
   const n    = repHist.length;
-  const padT = 26, padB = 10, padL = 8, padR = 8;
+  const padT = 28, padB = 18, padL = 30, padR = 10;
   const aW   = W - padL - padR;
-  const barW = Math.max(Math.floor(aW / MAX_BARS) - 3, 6);
-  const gap  = Math.max(Math.floor((aW - barW * n) / (n + 1)), 2);
   const cH   = H - padT - padB;
-  const maxV = Math.max.apply(null, repHist.map(r => r.vel).concat([0.5]));
 
-  // 가이드라인
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-  ctx.lineWidth   = 1;
-  ctx.fillStyle   = 'rgba(255,255,255,0.18)';
-  ctx.font        = `${Math.min(10, Math.max(8, barW * 0.6))}px monospace`;
-  ctx.textAlign   = 'left';
-  [0.5, 1.0, 1.5].forEach(v => {
-    if (v > maxV + 0.05) return;
+  // 막대 크기 — 20개 기준 고정 폭 사용
+  const barW = Math.max(Math.floor(aW / MAX_BARS) - 4, 6);
+  const slot  = Math.floor(aW / MAX_BARS);          // 슬롯 너비 (고정)
+  const maxV  = Math.max.apply(null, repHist.map(r => r.vel).concat([0.5]));
+  const avgV  = repHist.reduce((s, r) => s + r.vel, 0) / n;
+
+  // ── 배경 y축 가이드라인 ──────────────────
+  const guides = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5].filter(v => v <= maxV + 0.1);
+  ctx.font      = '9px monospace';
+  ctx.textAlign = 'right';
+  guides.forEach(v => {
     const y = padT + cH * (1 - v / maxV);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
-    ctx.fillText(v.toFixed(1), padL + 2, y - 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.fillText(v.toFixed(2), padL - 3, y + 3);
   });
 
-  // 막대 그리기 (roundRect 없이 fillRect 사용)
+  // ── 평균 점선 ────────────────────────────
+  const avgY = padT + cH * (1 - avgV / maxV);
+  ctx.strokeStyle = 'rgba(200,255,0,0.35)';
+  ctx.lineWidth   = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(padL, avgY); ctx.lineTo(W - padR, avgY); ctx.stroke();
+  ctx.setLineDash([]);
+  // 평균 라벨
+  ctx.fillStyle = 'rgba(200,255,0,0.6)';
+  ctx.font      = '9px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('avg ' + avgV.toFixed(2), padL + 2, avgY - 3);
+
+  // ── 막대 + 상단 꺾은선 좌표 수집 ─────────
+  const tops = [];   // {x, y} — 꺾은선용
+
   repHist.forEach((rep, i) => {
-    const x    = padL + gap * (i + 1) + barW * i;
+    // 슬롯 중앙 정렬
+    const x    = padL + i * slot + Math.floor((slot - barW) / 2);
     const barH = Math.max((rep.vel / maxV) * cH, 3);
     const y    = padT + cH - barH;
+    const cx   = x + barW / 2;  // 막대 중앙 x
+    tops.push({ cx, y, rep });
 
-    ctx.fillStyle = rep.color;
+    // 그라디언트 막대
+    const grd = ctx.createLinearGradient(0, y, 0, y + barH);
+    grd.addColorStop(0,   rep.color);
+    grd.addColorStop(0.6, rep.color + 'AA');
+    grd.addColorStop(1,   rep.color + '22');
+    ctx.fillStyle = grd;
     ctx.fillRect(x, y, barW, barH);
 
-    // 최신 막대 테두리
+    // 최신 막대: 테두리 강조
     if (i === n - 1) {
       ctx.strokeStyle = rep.color;
       ctx.lineWidth   = 1.5;
       ctx.strokeRect(x - 1, y - 1, barW + 2, barH + 2);
     }
 
-    // 속도 라벨
-    const fs = Math.min(12, Math.max(8, barW * 0.75));
-    ctx.fillStyle  = '#e8e8e8';
+    // 속도 라벨 (막대 위)
+    const fs = Math.min(11, Math.max(7, barW * 0.72));
+    ctx.fillStyle  = i === n - 1 ? '#ffffff' : 'rgba(230,230,230,0.85)';
     ctx.font       = `bold ${fs}px monospace`;
     ctx.textAlign  = 'center';
-    ctx.fillText(rep.vel.toFixed(2), x + barW / 2, y - 4);
+    ctx.fillText(rep.vel.toFixed(2), cx, y - 5);
+
+    // rep 번호 (막대 아래)
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font      = `${Math.max(7, fs - 2)}px monospace`;
+    ctx.fillText(i + 1, cx, H - padB + 11);
   });
+
+  // ── 상단 연결 꺾은선 ─────────────────────
+  if (tops.length >= 2) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth   = 1.5;
+    ctx.lineJoin    = 'round';
+    ctx.beginPath();
+    tops.forEach(({ cx, y }, i) => {
+      if (i === 0) ctx.moveTo(cx, y); else ctx.lineTo(cx, y);
+    });
+    ctx.stroke();
+
+    // 꼭짓점 원
+    tops.forEach(({ cx, y, rep }, i) => {
+      ctx.beginPath();
+      ctx.arc(cx, y, i === n - 1 ? 3.5 : 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = i === n - 1 ? rep.color : 'rgba(255,255,255,0.6)';
+      ctx.fill();
+    });
+  }
 }
 
 window.addEventListener('resize', () => {
@@ -613,20 +665,57 @@ function processLine(raw) {
 
 // ════════════════════════════════
 //  WEB SERIAL
+//  자동 감지: getPorts()로 이전 허가 포트 재사용
+//  최초 1회만 포트 선택창, 이후 자동 연결
 // ════════════════════════════════
 async function toggleConn() { if (connected) await doDisc(); else await doConn(); }
+
+async function openPort(p) {
+  port = p;
+  await port.open({ baudRate: CFG.BAUDRATE });
+  connected = true; running = true;
+  lenInit = null; lenOld = 0; lenBuf.length = 0;
+  inLift = false; descN = 0; candLen = null; repReset();
+  setConnUI(true); readLoop();
+}
+
 async function doConn() {
   if (!('serial' in navigator)) { document.getElementById('noser').classList.add('show'); return; }
   if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
   try {
-    port = await navigator.serial.requestPort();
-    await port.open({ baudRate: CFG.BAUDRATE });
-    connected = true; running = true;
-    lenInit = null; lenOld = 0; lenBuf.length = 0;
-    inLift = false; descN = 0; candLen = null; repReset();
-    setConnUI(true); readLoop();
-  } catch(e) { if (e.name !== 'NotFoundError') { console.error(e); setConnUI(false, true); } }
+    // 이전에 허가된 포트 확인
+    const prev = await navigator.serial.getPorts();
+    if (prev.length === 1) {
+      // 허가된 포트가 하나 → 바로 연결
+      await openPort(prev[0]);
+    } else if (prev.length > 1) {
+      // 여러 개 허가된 경우 → USB 시리얼 우선 선택
+      const usb = prev.find(p => p.getInfo().usbVendorId !== undefined);
+      await openPort(usb || prev[0]);
+    } else {
+      // 최초: 사용자에게 포트 선택창 표시
+      const chosen = await navigator.serial.requestPort();
+      await openPort(chosen);
+    }
+  } catch(e) {
+    if (e.name !== 'NotFoundError') { console.error(e); setConnUI(false, true); }
+  }
 }
+
+// 페이지 로드 시 자동 연결 시도
+window.addEventListener('load', async () => {
+  if (!('serial' in navigator)) return;
+  try {
+    const prev = await navigator.serial.getPorts();
+    if (prev.length > 0) {
+      // 이전 허가 포트 있음 → 버튼 UI를 "자동 연결 가능" 상태로
+      const btn = document.getElementById('conBtn');
+      btn.textContent = 'Auto-Connect';
+      btn.style.borderColor = 'var(--acc)';
+      btn.style.color = 'var(--acc)';
+    }
+  } catch(e) {}
+});
 async function doDisc() {
   running = false;
   try { if (reader) { await reader.cancel(); reader = null; } } catch{}
