@@ -410,10 +410,17 @@ function speak(val) {
     _ttsAudio = null;
   }
 
-  // Google Translate TTS (gTTS와 동일 엔진)
-  // → PC·iOS·Android 모두 같은 목소리
+  // Google Translate TTS — gTTS 파라미터와 완전 일치
+  // gTTS: tl=en (en-US 아님), ttsspeed=1, total/idx/textlen/prev 필수
   const url = 'https://translate.googleapis.com/translate_tts' +
-    '?ie=UTF-8&tl=en-US&client=tw-ob&q=' + encodeURIComponent(text);
+    '?ie=UTF-8' +
+    '&q='       + encodeURIComponent(text) +
+    '&tl=en' +                          // gTTS 기본값 (en-US 아님)
+    '&total=1&idx=0' +
+    '&textlen=' + text.length +
+    '&client=tw-ob' +
+    '&prev=input' +
+    '&ttsspeed=1';                      // 1=정상속도 (gTTS 기본값)
 
   const audio = new Audio(url);
   _ttsAudio = audio;
