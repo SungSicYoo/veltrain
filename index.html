@@ -73,7 +73,8 @@ button:disabled{opacity:.35;pointer-events:none;color:var(--txt);}
 }
 .vbadge.show{display:block;}
 .mir-row{display:flex;align-items:center;gap:8px;flex-shrink:0;}
-@media(max-width:767px){.mir-row{margin-left:auto;}}
+.ctrl-row{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;}
+@media(max-width:767px){.mir-row{margin-left:auto;}.ctrl-row{margin-left:0;}}
 
 /* MAIN — PC: 좌우 2칸 / 모바일: 세로 단일 컬럼 (peak 크게, current 작게) */
 main{display:grid;gap:1px;background:var(--brd);overflow:hidden;
@@ -181,20 +182,37 @@ footer{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surf);b
 .cinput::placeholder{color:var(--mut);font-size:20px;}
 .xbtn{position:absolute;top:12px;right:14px;font-size:18px;border:none;padding:4px 8px;color:var(--mut);background:transparent;cursor:pointer;}
 .xbtn:hover{color:var(--txt);}
-/* 모바일: Mirror 모달에서 HOST 탭 숨기고 VIEWER만 표시 */
-@media(max-width:767px){
-  #tabH { display:none; }
-  /* openMirror()에서 JS로 VIEWER 탭 자동 선택 */
-}
+
 body.vmode .honly{display:none !important;}
 #noser{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);align-items:center;justify-content:center;z-index:300;backdrop-filter:blur(4px);padding:16px;}
 #noser.show{display:flex;}
 .wbox{border:1px solid var(--red);padding:28px 32px;max-width:440px;text-align:center;}
 .wbox h2{color:var(--red);font-family:'Bebas Neue';font-size:28px;letter-spacing:3px;margin-bottom:12px;}
 .wbox p {color:#888;font-size:13px;line-height:1.8;}
+
+/* 앱 시작화면 오버레이 (오디오 & 전체화면 권한 획득용) */
+#startOverlay {
+  position:fixed;inset:0;background:var(--bg);z-index:999;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+}
+#startOverlay h1 { font-family:'Bebas Neue';font-size:64px;color:var(--acc);margin-bottom:10px;letter-spacing:6px;text-shadow:0 0 30px var(--glow); }
+#startOverlay p { color:var(--mut);margin-bottom:30px;font-size:12px;letter-spacing:1px;text-transform:uppercase; }
+.btn-start {
+  font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;
+  letter-spacing:2px;padding:16px 40px;border:2px solid var(--acc);
+  background:rgba(200,255,0,0.1);color:var(--acc);cursor:pointer;
+  transition:all .2s;text-transform:uppercase;border-radius:4px;
+}
+.btn-start:hover { background:var(--acc);color:#000;box-shadow:0 0 20px rgba(200,255,0,.4); }
 </style>
 </head>
 <body>
+
+<div id="startOverlay">
+  <h1>VelTrain</h1>
+  <p>Ready to lift</p>
+  <button class="btn-start" onclick="startApp()">Tap to Start</button>
+</div>
 
 <header>
   <div class="brand">VelTrain</div>
@@ -212,11 +230,18 @@ body.vmode .honly{display:none !important;}
     <button class="tog sel" id="tDef"  onclick="setMode(1)">Default</button>
     <button class="tog"     id="tLung" onclick="setMode(2)">Lunge</button>
   </div>
+  
   <div class="mir-row">
     <div class="sep"></div>
     <div class="dot" id="mDot"></div>
     <button id="mirBtn" onclick="openMirror()">Mirror</button>
     <div class="vbadge" id="vbadge">Viewer</div>
+  </div>
+
+  <div class="ctrl-row">
+    <div class="sep"></div>
+    <button onclick="location.reload()" style="border-color:var(--mut);color:var(--mut)">Reset</button>
+    <button onclick="exitApp()" class="live" style="border-color:var(--red);color:var(--red)">Exit</button>
   </div>
 </header>
 
@@ -282,17 +307,46 @@ body.vmode .honly{display:none !important;}
   </div>
 </div>
 
-<div id="audioBanner" style="
-  display:none; position:fixed; bottom:0; left:0; right:0; z-index:400;
-  background:rgba(200,255,0,0.12); border-top:1px solid rgba(200,255,0,0.4);
-  padding:12px 20px; text-align:center; cursor:pointer;
-  font-family:'JetBrains Mono',monospace; font-size:13px;
-  color:rgba(200,255,0,0.9); letter-spacing:1px;
-" onclick="unlockAudio()">
-  🔊 탭하여 소리 활성화
-</div>
-
 <script>
+// ════════════════════════════════
+//  APP START & EXIT (전체화면 + 오디오)
+// ════════════════════════════════
+function startApp() {
+  // 1. 오디오 잠금 해제 실행
+  unlockAudio();
+  
+  // 2. 전체 화면 모드 진입 요청
+  const elem = document.documentElement;
+  try {
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(e => console.log('Fullscreen blocked', e));
+    } else if (elem.webkitRequestFullscreen) { /* Safari 지원 */
+      elem.webkitRequestFullscreen().catch(e => console.log('Fullscreen blocked', e));
+    }
+  } catch(e) {}
+
+  // 3. 시작 오버레이 숨기기
+  document.getElementById('startOverlay').style.display = 'none';
+}
+
+function exitApp() {
+  // 1. 전체 화면 해제 시도
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+  } catch(e) {}
+  
+  // 2. 브라우저 탭/창 닫기 시도 (스크립트로 연 창이 아니면 무시될 수 있음)
+  try { window.close(); } catch(e) {}
+  
+  // 혹시 창이 안 닫히면 시작 화면으로 되돌려 놓기
+  setTimeout(() => {
+    document.getElementById('startOverlay').style.display = 'flex';
+  }, 300);
+}
+
 // ════════════════════════════════
 //  CONFIG
 // ════════════════════════════════
@@ -308,19 +362,12 @@ const CFG = {
 // ════════════════════════════════
 let audioUnlocked = false;
 let actx = null;
-
-// 모바일 정책 우회를 위한 단일 전역 오디오 객체
 const globalTtsAudio = new Audio();
-
-// 모바일 및 태블릿(아이패드 데스크탑 모드 포함) 감지
-const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || 
-                 (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
 
 function unlockAudio() {
   if (audioUnlocked) return;
   audioUnlocked = true;
 
-  // 1) AudioContext 생성 & resume
   try {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === 'suspended') actx.resume();
@@ -329,22 +376,21 @@ function unlockAudio() {
     src.buffer = buf; src.connect(actx.destination); src.start(0);
   } catch(e) { console.warn('AudioContext unlock:', e); }
 
-  // 2) iOS/Android/태블릿 Audio() unlock — 무음 오디오 재생
   globalTtsAudio.src = 'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaFBsdXMgMi4wLjAuMTEgV2luZG93cwBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
   globalTtsAudio.play().catch(() => {});
 
-  // 3) speechSynthesis fallback 잠금 해제
   try {
     const silent = new SpeechSynthesisUtterance(' ');
     silent.volume = 0; silent.rate = 2;
     speechSynthesis.speak(silent);
   } catch(e) { console.warn('TTS unlock:', e); }
 
-  document.getElementById('audioBanner').style.display = 'none';
   console.log('[Audio] Unlocked');
 }
 
-// iOS Safari 버그 방지 (주기적 호출)
+// iOS Safari 버그 방지
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || 
+                 (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
 if (isMobile) {
   setInterval(() => {
     if (!speechSynthesis.speaking && audioUnlocked) {
@@ -353,12 +399,6 @@ if (isMobile) {
     }
   }, 10000);
 }
-
-window.addEventListener('DOMContentLoaded', () => {
-  if (isMobile) {
-    document.getElementById('audioBanner').style.display = 'block';
-  }
-});
 
 // ════════════════════════════════
 //  TTS — Google Translate 음성
