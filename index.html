@@ -82,11 +82,13 @@ main{display:grid;gap:1px;background:var(--brd);overflow:hidden;
 }
 @media(max-width:767px){
   main{ grid-template-columns:1fr; grid-template-rows:1fr auto; }
-  /* 모바일: current 패널은 작게 고정 */
+  /* 모바일 peak: 숫자 크게 */
+  .panel:not(.curr) .vel-num { font-size:clamp(96px,28vw,200px); }
+  /* 모바일 current: 가로 한 줄, 작게 */
   .panel.curr{ flex-direction:row; justify-content:center; align-items:center;
     gap:12px; padding:10px 20px; flex:0 0 auto; }
   .panel.curr .vel-tag{ margin-bottom:0; font-size:9px; }
-  .panel.curr .vel-num{ font-size:clamp(28px,8vw,48px); min-width:auto; }
+  .panel.curr .vel-num{ font-size:clamp(32px,9vw,52px); min-width:auto; }
   .panel.curr .vel-unit{ margin-top:0; font-size:13px; }
 }
 .panel{
@@ -161,9 +163,9 @@ footer{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surf);b
 }
 .mbtn:hover{border-color:var(--acc);color:var(--acc);}
 .codedisp{
-  font-family:'Bebas Neue',sans-serif;font-size:64px;letter-spacing:10px;
+  font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:16px;
   color:var(--acc);text-align:center;text-shadow:0 0 30px var(--glow);
-  margin:8px 0 4px;min-height:72px;line-height:1;word-break:break-all;
+  margin:8px 0 4px;min-height:80px;line-height:1;word-break:break-all;
 }
 .mhint{font-size:11px;letter-spacing:1px;color:var(--mut);text-align:center;min-height:18px;margin-top:4px;}
 .mhint.ok  {color:var(--acc);}
