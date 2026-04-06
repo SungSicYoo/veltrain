@@ -284,6 +284,17 @@ body.vmode .honly{display:none !important;}
   </div>
 </div>
 
+<!-- 모바일 오디오 잠금 해제 배너 -->
+<div id="audioBanner" style="
+  display:none; position:fixed; bottom:0; left:0; right:0; z-index:400;
+  background:rgba(200,255,0,0.12); border-top:1px solid rgba(200,255,0,0.4);
+  padding:12px 20px; text-align:center; cursor:pointer;
+  font-family:'JetBrains Mono',monospace; font-size:13px;
+  color:rgba(200,255,0,0.9); letter-spacing:1px;
+" onclick="unlockAudio()">
+  🔊 탭하여 소리 활성화
+</div>
+
 <script>
 // ════════════════════════════════
 //  CONFIG
@@ -294,6 +305,63 @@ const CFG = {
   MIN_LIFT:6.0, MIN_PEAK_VEL:0.10, MIN_REP_TIME:0.10,
   PEAK_HW:2, DESC_N:3, VEL_MAX:1.5,
 };
+
+// ════════════════════════════════
+//  AUDIO UNLOCK
+//  모바일(iOS/Android) 오디오 보안 정책:
+//  - AudioContext는 사용자 제스처 없이 suspended 상태
+//  - speechSynthesis.speak()는 제스처 컨텍스트 밖에서 무시됨
+//  → 최초 사용자 탭 시 두 API 모두 잠금 해제
+// ════════════════════════════════
+let audioUnlocked = false;
+let actx = null;
+
+// 모바일 여부 감지
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+
+  // 1) AudioContext 생성 & resume
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    // 무음 버퍼 재생 → iOS AudioContext 완전 활성화
+    const buf = actx.createBuffer(1, 1, 22050);
+    const src = actx.createBufferSource();
+    src.buffer = buf; src.connect(actx.destination); src.start(0);
+  } catch(e) { console.warn('AudioContext unlock:', e); }
+
+  // 2) speechSynthesis 잠금 해제 (iOS: 무음 utterance 필수)
+  try {
+    const silent = new SpeechSynthesisUtterance(' ');
+    silent.volume = 0; silent.rate = 2;
+    speechSynthesis.speak(silent);
+  } catch(e) { console.warn('TTS unlock:', e); }
+
+  // 배너 숨김
+  document.getElementById('audioBanner').style.display = 'none';
+  console.log('[Audio] Unlocked');
+}
+
+// iOS Safari: speechSynthesis가 일정 시간 후 멈추는 버그 방지
+// → 주기적으로 pause/resume 호출
+if (isMobile) {
+  setInterval(() => {
+    if (!speechSynthesis.speaking && audioUnlocked) {
+      speechSynthesis.pause();
+      speechSynthesis.resume();
+    }
+  }, 10000);
+}
+
+// 페이지 로드 시 모바일이면 배너 표시
+window.addEventListener('DOMContentLoaded', () => {
+  if (isMobile) {
+    document.getElementById('audioBanner').style.display = 'block';
+  }
+});
 
 // ════════════════════════════════
 //  TTS
@@ -312,11 +380,14 @@ speechSynthesis.addEventListener('voiceschanged', _loadVoice);
 _loadVoice();
 
 function speak(val) {
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(val.toFixed(2));
-  if (_voice) u.voice = _voice;
-  u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.0; u.volume = 1.0;
-  speechSynthesis.speak(u);
+  if (!audioUnlocked) return;  // 잠금 해제 전엔 무시
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(val.toFixed(2));
+    if (_voice) u.voice = _voice;
+    u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.0; u.volume = 1.0;
+    speechSynthesis.speak(u);
+  } catch(e) { console.warn('speak:', e); }
 }
 
 // ════════════════════════════════
@@ -364,12 +435,13 @@ function repMean() {
 function repMaxL() { return Math.max.apply(null, repL); }
 
 // ════════════════════════════════
-//  AUDIO
+//  AUDIO — BEEP
 // ════════════════════════════════
-let actx = null;
 function beep() {
   try {
+    // PC: actx가 없으면 버튼 클릭 컨텍스트에서 생성
     if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
     const o = actx.createOscillator(), g = actx.createGain();
     o.connect(g); g.connect(actx.destination);
     o.type = 'sine'; o.frequency.value = 880;
@@ -663,7 +735,12 @@ async function openPort(p) {
 
 async function doConn() {
   if (!('serial' in navigator)) { document.getElementById('noser').classList.add('show'); return; }
-  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  // PC: 버튼 클릭(제스처)에서 AudioContext 생성
+  if (!actx) {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    audioUnlocked = true;
+  }
+  if (actx.state === 'suspended') actx.resume();
   try {
     // 이전에 허가된 포트 확인
     const prev = await navigator.serial.getPorts();
