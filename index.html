@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VelTrain</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;700&display=swap');
+
+  :root {
+    --bg:       #080808;
+    --surface:  #101010;
+    --border:   #1e1e1e;
+    --text:     #e8e8e8;
+    --muted:    #3a3a3a;
+    --accent:   #c8ff00;
+    --danger:   #ff3c3c;
+    --glow:     rgba(200,255,0,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── HEADER ────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--glow);
+    flex-shrink: 0;
+  }
+
+  .sep { width: 1px; height: 28px; background: var(--border); }
+
+  /* connect */
+  .connect-row { display: flex; align-items: center; gap: 10px; }
+
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .dot.on  { background: var(--accent); box-shadow: 0 0 8px var(--glow); }
+  .dot.err { background: var(--danger); }
+
+  button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.live  { border-color: var(--danger); color: var(--danger); }
+  button:disabled { opacity: 0.3; pointer-events: none; }
+
+  /* radio toggles */
+  .toggle-group {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .tog {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    cursor: pointer;
+    color: var(--muted);
+    border: none;
+    background: transparent;
+    transition: all 0.15s;
+    border-radius: 0;
+  }
+  .tog + .tog { border-left: 1px solid var(--border); }
+  .tog:hover  { color: var(--text); }
+  .tog.sel    { background: var(--accent); color: #000; }
+  .tog:disabled { pointer-events: none; }
+
+  /* ── MAIN ──────────────────────────────── */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .panel {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(200,255,0,0.03) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .vel-tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .vel-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(80px, 14vw, 160px);
+    line-height: 0.9;
+    letter-spacing: 2px;
+    color: var(--text);
+    transition: color 0.08s;
+    font-variant-numeric: tabular-nums;
+    min-width: 4ch;
+    text-align: right;
+  }
+  .vel-num.peak { color: var(--accent); text-shadow: 0 0 40px rgba(200,255,0,0.3); }
+
+  .vel-unit {
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--muted);
+    margin-top: 8px;
+    letter-spacing: 2px;
+  }
+
+  /* flash animation on new peak */
+  @keyframes peakFlash {
+    0%   { opacity: 1; transform: scale(1); }
+    20%  { opacity: 0.7; transform: scale(1.02); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .flash { animation: peakFlash 0.4s ease; }
+
+  /* candidate indicator */
+  .candidate-bar {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #ff9500;
+    opacity: 0;
+    transition: opacity 0.2s;
+    text-transform: uppercase;
+  }
+  .candidate-bar.visible { opacity: 1; }
+
+  /* ── STATUS BAR ─────────────────────────── */
+  footer {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .stat {
+    padding: 8px 20px;
+    border-right: 1px solid var(--border);
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  .stat:last-child { border-right: none; }
+  .stat-key { color: var(--muted); text-transform: uppercase; font-size: 9px; margin-bottom: 2px; }
+  .stat-val { color: var(--text); font-size: 12px; }
+
+  /* no-serial warning */
+  #noSerialWarning {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    align-items: center; justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+  #noSerialWarning.show { display: flex; }
+  .warn-box {
+    border: 1px solid var(--danger);
+    padding: 32px 40px;
+    max-width: 480px;
+    text-align: center;
+  }
+  .warn-box h2 { color: var(--danger); font-family: 'Bebas Neue'; font-size: 28px; letter-spacing: 3px; margin-bottom: 12px; }
+  .warn-box p  { color: #888; font-size: 13px; line-height: 1.8; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────── -->
+<header>
+  <div class="brand">VelTrain</div>
+  <div class="sep"></div>
+
+  <div class="connect-row">
+    <div class="dot" id="dot"></div>
+    <button id="connectBtn" onclick="toggleConnection()">Connect</button>
+    <span id="portName" style="font-size:11px;color:var(--muted);"></span>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="toggle-group">
+    <button class="tog sel" id="togPeak" onclick="setShow(1)">Peak</button>
+    <button class="tog"     id="togMean" onclick="setShow(2)">Mean</button>
+  </div>
+
+  <div class="toggle-group">
+    <button class="tog sel" id="togDefault" onclick="setMode(1)">Default</button>
+    <button class="tog"     id="togLunge"   onclick="setMode(2)">Barbell Lunge</button>
+  </div>
+</header>
+
+<!-- ── MAIN ───────────────────────────────────── -->
+<main>
+  <!-- Peak / Mean velocity -->
+  <div class="panel">
+    <div class="vel-tag" id="peakTag">Peak Velocity</div>
+    <div class="vel-num peak" id="peakNum">0.00</div>
+    <div class="vel-unit">m / s</div>
+    <div class="candidate-bar" id="candidateBar">▼ candidate</div>
+  </div>
+
+  <!-- Current velocity -->
+  <div class="panel">
+    <div class="vel-tag">Current Velocity</div>
+    <div class="vel-num" id="currNum">0.00</div>
+    <div class="vel-unit">m / s</div>
+  </div>
+</main>
+
+<!-- ── STATUS BAR ─────────────────────────────── -->
+<footer>
+  <div class="stat">
+    <div class="stat-key">Status</div>
+    <div class="stat-val" id="stStat">Idle</div>
+  </div>
+  <div class="stat">
+    <div class="stat-key">Height</div>
+    <div class="stat-val" id="stHeight">— cm</div>
+  </div>
+  <div class="stat">
+    <div class="stat-key">Lift</div>
+    <div class="stat-val" id="stLift">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-key">Rep Count</div>
+    <div class="stat-val" id="stRep">0</div>
+  </div>
+</footer>
+
+<!-- No Web Serial warning -->
+<div id="noSerialWarning">
+  <div class="warn-box">
+    <h2>Browser Not Supported</h2>
+    <p>Web Serial API가 필요합니다.<br>
+    <strong>Chrome</strong> 또는 <strong>Edge</strong> 브라우저로 열어주세요.<br><br>
+    Firefox · Safari는 지원되지 않습니다.</p>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════
+const CFG = {
+  BAUDRATE:          115200,
+  FACTOR:            30 / 7860,   // raw count → cm (원본 공식 유지)
+  OVERFLOW_THR:      40000,
+  OVERFLOW_WRAP:     65536,
+
+  MIN_LIFT_LENGTH:   6.0,   // cm  — 이 이하 움직임은 바운스로 무시
+  MIN_PEAK_VEL:      0.10,  // m/s — 피크 최소 속도
+  MIN_REP_TIME:      0.10,  // s
+  PEAK_HALF_WIN:     2,
+  DESCENT_CONFIRM_N: 3,
+  VEL_COLOR_MAX:     1.5,   // m/s
+};
+
+// ═══════════════════════════════════════════════
+//  APP STATE
+// ═══════════════════════════════════════════════
+let showMode = 1;   // 1=Peak, 2=Mean
+let liftMode = 1;   // 1=Default, 2=Barbell Lunge
+
+let port       = null;
+let reader     = null;
+let connected  = false;
+let running    = false;
+let repCount   = 0;
+
+// 센서
+let lengthInit = null;
+let lengthOld  = 0;
+const lenBuf   = [];   // 최근 길이값 버퍼 (isMaxLength 계산용)
+
+// RepTracker
+let repVels    = [0];
+let repLengths = [0];
+
+// 피크 감지
+let inLift              = false;
+let savedTime           = 0;
+let descentCount        = 0;
+let candidatePeakLength = null;
+let initialSwitch       = true;
+let isMaxLength         = false;
+
+// ═══════════════════════════════════════════════
+//  SENSOR PARSER
+// ═══════════════════════════════════════════════
+function parseRaw(raw) {
+  try {
+    const valRaw = parseInt(raw.slice(4), 10);
+    if (isNaN(valRaw)) return null;
+    let val = valRaw;
+    if (val > CFG.OVERFLOW_THR) val -= CFG.OVERFLOW_WRAP;
+    const cm = val * CFG.FACTOR;
+    if (lengthInit === null) { lengthInit = cm; return 0; }
+    return cm - lengthInit;
+  } catch { return null; }
+}
+
+// ═══════════════════════════════════════════════
+//  REP TRACKER
+// ═══════════════════════════════════════════════
+function repReset()         { repVels = [0]; repLengths = [0]; }
+function repAdd(v, l)       { repVels.push(v); repLengths.push(l); }
+
+function repPeakVel() {
+  if (!repVels.length) return 0;
+  const mv  = repVels.indexOf(Math.max(...repVels));
+  const lo  = Math.max(0, mv - CFG.PEAK_HALF_WIN);
+  const hi  = Math.min(repVels.length, mv + CFG.PEAK_HALF_WIN + 1);
+  const win = repVels.slice(lo, hi);
+  return win.reduce((a, b) => a + b, 0) / win.length;
+}
+
+function repMeanVel() {
+  const ml  = repLengths.indexOf(Math.max(...repLengths));
+  const sub = repVels.slice(0, ml);
+  if (!sub.length) return 0;
+  return sub.reduce((a, b) => a + b, 0) / sub.length;
+}
+
+function repMaxLen() {
+  return repLengths.length ? Math.max(...repLengths) : 0;
+}
+
+// ═══════════════════════════════════════════════
+//  AUDIO
+// ═══════════════════════════════════════════════
+let audioCtx = null;
+
+function playBeep() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc  = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.type            = 'sine';
+  osc.frequency.value = 880;
+  gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+  osc.start(audioCtx.currentTime);
+  osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function speak(value) {
+  window.speechSynthesis.cancel();  // 이전 재생 즉시 중단
+  const utt  = new SpeechSynthesisUtterance(value.toFixed(2));
+  utt.lang   = 'en-US';
+  utt.rate   = 1.1;
+  utt.volume = 1.0;
+  window.speechSynthesis.speak(utt);
+}
+
+// ═══════════════════════════════════════════════
+//  GUI UPDATE
+// ═══════════════════════════════════════════════
+function getColor(vel) {
+  const vmax = CFG.VEL_COLOR_MAX;
+  if (vel <= 0) return '#2244ff';
+  if (vel >= vmax) return '#ff2222';
+  const r = vel / vmax;
+  const segs = [
+    [0.00, 0.25, [34,68,255],   [0,220,0]],
+    [0.25, 0.50, [0,220,0],     [255,230,0]],
+    [0.50, 0.75, [255,230,0],   [255,120,0]],
+    [0.75, 1.00, [255,120,0],   [255,34,34]],
+  ];
+  for (const [lo, hi, c0, c1] of segs) {
+    if (r >= lo && r <= hi) {
+      const t = (r - lo) / (hi - lo);
+      const ch = c0.map((v, i) => Math.round(v + (c1[i] - v) * t));
+      return `rgb(${ch[0]},${ch[1]},${ch[2]})`;
+    }
+  }
+  return '#ff2222';
+}
+
+function updateCurr(vel) {
+  const el = document.getElementById('currNum');
+  el.textContent = vel.toFixed(2);
+  el.style.color = getColor(vel);
+}
+
+function emitPeak(now) {
+  const val = showMode === 1 ? repPeakVel() : repMeanVel();
+  if (val < CFG.MIN_PEAK_VEL) { repReset(); savedTime = now; return; }
+
+  const el = document.getElementById('peakNum');
+  el.textContent = val.toFixed(2);
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+
+  playBeep();
+  speak(val);
+  repReset();
+  savedTime = now;
+  repCount++;
+  document.getElementById('stRep').textContent = repCount;
+}
+
+function setCandidateUI(len) {
+  const bar = document.getElementById('candidateBar');
+  if (len !== null) {
+    bar.textContent = `▼ candidate  ${len.toFixed(1)} cm`;
+    bar.classList.add('visible');
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function updateStatus(length) {
+  document.getElementById('stHeight').textContent =
+    length !== null ? length.toFixed(2) + ' cm' : '— cm';
+  document.getElementById('stLift').textContent =
+    inLift ? (candidatePeakLength !== null ? 'Descending' : 'Lifting') : '—';
+  document.getElementById('stStat').textContent =
+    !connected ? 'Idle' :
+    candidatePeakLength !== null ? 'Confirming Peak' :
+    inLift ? 'In Lift' : 'Waiting';
+}
+
+// ═══════════════════════════════════════════════
+//  PEAK DETECTION — MODE 1 (Default)
+// ═══════════════════════════════════════════════
+function processMode1(vel, velSigned, length, now) {
+  if (length > CFG.MIN_LIFT_LENGTH) {
+    if (!inLift) {
+      // 새 리프트 시작
+      inLift              = true;
+      savedTime           = now;
+      descentCount        = 0;
+      candidatePeakLength = null;
+      repReset();
+    } else {
+      repAdd(vel, length);
+
+      if (velSigned < 0) {
+        descentCount++;
+      } else {
+        // 상승 재개 → 멈칫이었으므로 후보 취소
+        if (candidatePeakLength !== null) candidatePeakLength = null;
+        descentCount = 0;
+      }
+
+      // 후보 등록: DESCENT_CONFIRM_N 연속 하강
+      if (descentCount >= CFG.DESCENT_CONFIRM_N) {
+        candidatePeakLength = repMaxLen();
+        descentCount = 0;
+      }
+
+      // 후보 확인: 피크 높이의 절반 이하로 내려오면 진짜 피크
+      if (candidatePeakLength !== null && length <= candidatePeakLength / 2) {
+        if (now - savedTime >= CFG.MIN_REP_TIME) emitPeak(now);
+        inLift              = false;
+        descentCount        = 0;
+        candidatePeakLength = null;
+      }
+    }
+  } else {
+    // 역치 이하: 바닥 복귀 (Trigger A)
+    if (inLift) {
+      if (now - savedTime >= CFG.MIN_REP_TIME) emitPeak(now);
+      inLift              = false;
+      descentCount        = 0;
+      candidatePeakLength = null;
+      initialSwitch       = true;
+    }
+  }
+
+  setCandidateUI(candidatePeakLength);
+  updateStatus(length);
+}
+
+// ═══════════════════════════════════════════════
+//  PEAK DETECTION — MODE 2 (Barbell Lunge)
+// ═══════════════════════════════════════════════
+function processMode2(vel, length, now) {
+  if (length > CFG.MIN_LIFT_LENGTH && initialSwitch) {
+    if (!inLift) {
+      inLift        = true;
+      initialSwitch = false;
+      savedTime     = now;
+      repReset();
+      updateStatus(length);
+      return;
+    }
+  }
+  if (inLift) {
+    repAdd(vel, length);
+    if (now - savedTime > CFG.MIN_REP_TIME && isMaxLength) {
+      const peak = repPeakVel();
+      if (peak >= CFG.MIN_PEAK_VEL) {
+        const el = document.getElementById('peakNum');
+        el.textContent = peak.toFixed(2);
+        el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+        playBeep();
+        speak(peak);
+        repReset();
+        savedTime = now;
+        repCount++;
+        document.getElementById('stRep').textContent = repCount;
+      }
+    }
+  }
+  updateStatus(length);
+}
+
+// ═══════════════════════════════════════════════
+//  MAIN DATA PROCESSOR
+// ═══════════════════════════════════════════════
+function processLine(raw) {
+  const length = parseRaw(raw);
+  if (length === null) return;
+
+  // 원본 속도 계산 공식 그대로
+  const velSigned = (length - lengthOld) * 0.01 / 0.05;
+  const vel       = Math.max(velSigned, 0);
+
+  // isMaxLength (mode 2용 3점 비교)
+  if (lenBuf.length >= 2) {
+    isMaxLength = (
+      (length - lenBuf[lenBuf.length - 1]) < 0 &&
+      (lenBuf[lenBuf.length - 1] - lenBuf[lenBuf.length - 2]) > 0 &&
+      length > CFG.MIN_LIFT_LENGTH
+    );
+  } else {
+    isMaxLength = false;
+  }
+  lenBuf.push(length);
+  if (lenBuf.length > 200) lenBuf.shift();
+
+  updateCurr(vel);
+
+  const now = performance.now() / 1000;  // seconds
+  if (liftMode === 1) processMode1(vel, velSigned, length, now);
+  else                processMode2(vel, length, now);
+
+  lengthOld = length;
+}
+
+// ═══════════════════════════════════════════════
+//  WEB SERIAL
+// ═══════════════════════════════════════════════
+async function toggleConnection() {
+  if (connected) await disconnect();
+  else           await connect();
+}
+
+async function connect() {
+  if (!('serial' in navigator)) {
+    document.getElementById('noSerialWarning').classList.add('show');
+    return;
+  }
+  // AudioContext 초기화 (gesture 필요)
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: CFG.BAUDRATE });
+    connected  = true;
+    running    = true;
+    lengthInit = null;
+    lengthOld  = 0;
+    lenBuf.length = 0;
+    inLift       = false;
+    descentCount = 0;
+    candidatePeakLength = null;
+    repReset();
+    setConnUI(true);
+    readLoop();
+  } catch (e) {
+    if (e.name !== 'NotFoundError') {
+      console.error(e);
+      setConnUI(false, true);
+    }
+  }
+}
+
+async function disconnect() {
+  running = false;
+  try { if (reader) { await reader.cancel(); reader = null; } } catch {}
+  try { if (port)   { await port.close();    port   = null; } } catch {}
+  connected = false;
+  setConnUI(false);
+}
+
+async function readLoop() {
+  const decoder   = new TextDecoderStream();
+  const pipeDone  = port.readable.pipeTo(decoder.writable);
+  reader          = decoder.readable.getReader();
+  let lineBuffer  = '';
+
+  try {
+    while (running) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      lineBuffer += value;
+      const lines = lineBuffer.split('\n');
+      lineBuffer  = lines.pop();           // 마지막 불완전 라인 보류
+      for (const line of lines) {
+        const t = line.trim();
+        if (t) processLine(t);
+      }
+    }
+  } catch (e) {
+    if (running) console.error('Serial read error:', e);
+  } finally {
+    reader    = null;
+    connected = false;
+    setConnUI(false);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  UI CONTROLS
+// ═══════════════════════════════════════════════
+function setConnUI(isConn, isErr = false) {
+  const dot = document.getElementById('dot');
+  const btn = document.getElementById('connectBtn');
+  dot.className = 'dot' + (isConn ? ' on' : isErr ? ' err' : '');
+  btn.textContent = isConn ? 'Disconnect' : 'Connect';
+  btn.className   = isConn ? 'live' : '';
+  document.getElementById('stStat').textContent = isConn ? 'Waiting' : 'Idle';
+  updateStatus(null);
+}
+
+function setShow(val) {
+  showMode = val;
+  document.getElementById('togPeak').className = 'tog' + (val===1?' sel':'');
+  document.getElementById('togMean').className = 'tog' + (val===2?' sel':'');
+  document.getElementById('peakTag').textContent = val===1 ? 'Peak Velocity' : 'Mean Velocity';
+}
+
+function setMode(val) {
+  liftMode = val;
+  document.getElementById('togDefault').className = 'tog' + (val===1?' sel':'');
+  document.getElementById('togLunge').className   = 'tog' + (val===2?' sel':'');
+  // mode 2에서는 show 토글 비활성
+  ['togPeak','togMean'].forEach(id => {
+    const el = document.getElementById(id);
+    el.disabled      = val === 2;
+    el.style.opacity = val === 2 ? '0.35' : '1';
+  });
+}
+
+// 시작 시 Web Serial 지원 여부 체크
+if (!('serial' in navigator)) {
+  document.getElementById('noSerialWarning').classList.add('show');
+}
+</script>
+</body>
+</html>
