@@ -327,20 +327,21 @@ function unlockAudio() {
   try {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === 'suspended') actx.resume();
-    // 무음 버퍼 재생 → iOS AudioContext 완전 활성화
     const buf = actx.createBuffer(1, 1, 22050);
     const src = actx.createBufferSource();
     src.buffer = buf; src.connect(actx.destination); src.start(0);
   } catch(e) { console.warn('AudioContext unlock:', e); }
 
-  // 2) speechSynthesis 잠금 해제 (iOS: 무음 utterance 필수)
+  // 2) iOS Audio() unlock — 제스처 맥락에서 미리 재생 시도
+  _prewarmAudio();
+
+  // 3) speechSynthesis fallback 잠금 해제 (iOS 무음 utterance)
   try {
     const silent = new SpeechSynthesisUtterance(' ');
     silent.volume = 0; silent.rate = 2;
     speechSynthesis.speak(silent);
   } catch(e) { console.warn('TTS unlock:', e); }
 
-  // 배너 숨김
   document.getElementById('audioBanner').style.display = 'none';
   console.log('[Audio] Unlocked');
 }
@@ -364,12 +365,31 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ════════════════════════════════
-//  TTS
+//  TTS — Google Translate 음성
+//  Python gTTS와 동일한 엔진 사용
+//  → PC/iOS/Android 모두 같은 음질
+//  API 키 불필요, Audio() 태그로 재생
 // ════════════════════════════════
-let _voice = null;
+let _ttsAudio = null;   // 현재 재생 중인 Audio 객체
+
+// iOS: Audio 재생은 사용자 제스처 맥락이 필요하므로
+// unlockAudio() 시점에 더미 Audio를 미리 만들어 unlock
+let _audioUnlockDummy = null;
+
+function _prewarmAudio() {
+  // 짧은 무음 mp3 data URI → iOS Audio unlock
+  _audioUnlockDummy = new Audio();
+  _audioUnlockDummy.src =
+    'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaFBsdXMgMi4wLjAuMTEgV2luZG93cwBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+  _audioUnlockDummy.volume = 0;
+  _audioUnlockDummy.play().catch(() => {});
+}
+
+// Web Speech API 음성 (fallback용)
+let _wsVoice = null;
 function _loadVoice() {
   const vs = speechSynthesis.getVoices();
-  _voice =
+  _wsVoice =
     vs.find(v => v.name === 'Google US English') ||
     vs.find(v => /google/i.test(v.name) && v.lang === 'en-US') ||
     vs.find(v => !v.localService && v.lang === 'en-US') ||
@@ -380,14 +400,34 @@ speechSynthesis.addEventListener('voiceschanged', _loadVoice);
 _loadVoice();
 
 function speak(val) {
-  if (!audioUnlocked) return;  // 잠금 해제 전엔 무시
-  try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(val.toFixed(2));
-    if (_voice) u.voice = _voice;
-    u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.0; u.volume = 1.0;
-    speechSynthesis.speak(u);
-  } catch(e) { console.warn('speak:', e); }
+  if (!audioUnlocked) return;
+  const text = val.toFixed(2);
+
+  // 이전 재생 즉시 중단
+  if (_ttsAudio) {
+    _ttsAudio.pause();
+    _ttsAudio.src = '';
+    _ttsAudio = null;
+  }
+
+  // Google Translate TTS (gTTS와 동일 엔진)
+  // → PC·iOS·Android 모두 같은 목소리
+  const url = 'https://translate.googleapis.com/translate_tts' +
+    '?ie=UTF-8&tl=en-US&client=tw-ob&q=' + encodeURIComponent(text);
+
+  const audio = new Audio(url);
+  _ttsAudio = audio;
+  audio.play().catch(() => {
+    // 네트워크 차단 등 실패 시 Web Speech API로 fallback
+    _ttsAudio = null;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      if (_wsVoice) u.voice = _wsVoice;
+      u.lang = 'en-US'; u.rate = 0.85;
+      speechSynthesis.speak(u);
+    } catch(e) { console.warn('TTS fallback:', e); }
+  });
 }
 
 // ════════════════════════════════
