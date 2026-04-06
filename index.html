@@ -565,11 +565,15 @@ function startHost() {
     document.getElementById('mirBtn').className='mir-on';
   });
   mPeer.on('connection',conn=>{
-    mConns.push(conn);
-    hHint(`Viewer ${mConns.length}대 연결됨`,'ok');
+    // conn.open 이벤트 이후에 mConns에 추가해야 c.open 필터를 통과함
+    conn.on('open', ()=>{
+      mConns.push(conn);
+      hHint(`Viewer ${mConns.length}대 연결됨`,'ok');
+    });
     conn.on('close',()=>{ mConns=mConns.filter(c=>c!==conn);
       hHint(mConns.length?`Viewer ${mConns.length}대 연결됨`:'폰에서 이 코드를 입력하세요',mConns.length?'ok':'');
     });
+    conn.on('error', e=>console.error('conn error:',e));
   });
   mPeer.on('error',e=>{
     if (e.type==='unavailable-id') startHost();
