@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VelTrain</title>
+<!-- MQTT.js: PeerJS 완전 대체. pub/sub 방식으로 미러링 -->
 <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;700&display=swap');
@@ -245,6 +246,7 @@ body.vmode .honly{display:none !important;}
   <div id="chartEmpty">Rep history will appear here</div>
 </div>
 
+<!-- MIRROR MODAL -->
 <div class="overlay" id="mirModal">
   <div class="mbox">
     <button class="xbtn" onclick="closeMirror()">✕</button>
@@ -282,6 +284,7 @@ body.vmode .honly{display:none !important;}
   </div>
 </div>
 
+<!-- 모바일 오디오 잠금 해제 배너 -->
 <div id="audioBanner" style="
   display:none; position:fixed; bottom:0; left:0; right:0; z-index:400;
   background:rgba(200,255,0,0.12); border-top:1px solid rgba(200,255,0,0.4);
@@ -305,12 +308,13 @@ const CFG = {
 
 // ════════════════════════════════
 //  AUDIO UNLOCK
+//  모바일(iOS/Android) 오디오 보안 정책:
+//  - AudioContext는 사용자 제스처 없이 suspended 상태
+//  - speechSynthesis.speak()는 제스처 컨텍스트 밖에서 무시됨
+//  → 최초 사용자 탭 시 두 API 모두 잠금 해제
 // ════════════════════════════════
 let audioUnlocked = false;
 let actx = null;
-
-// 핵심 변경점: 단일 Audio 객체를 전역으로 생성하여 재사용 (모바일 정책 우회)
-const globalTtsAudio = new Audio();
 
 // 모바일 여부 감지
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
@@ -328,9 +332,8 @@ function unlockAudio() {
     src.buffer = buf; src.connect(actx.destination); src.start(0);
   } catch(e) { console.warn('AudioContext unlock:', e); }
 
-  // 2) iOS/Android Audio() unlock — 무음 오디오를 재생하여 권한 획득
-  globalTtsAudio.src = 'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaFBsdXMgMi4wLjAuMTEgV2luZG93cwBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
-  globalTtsAudio.play().catch(() => {});
+  // 2) iOS Audio() unlock — 제스처 맥락에서 미리 재생 시도
+  _prewarmAudio();
 
   // 3) speechSynthesis fallback 잠금 해제 (iOS 무음 utterance)
   try {
@@ -344,6 +347,7 @@ function unlockAudio() {
 }
 
 // iOS Safari: speechSynthesis가 일정 시간 후 멈추는 버그 방지
+// → 주기적으로 pause/resume 호출
 if (isMobile) {
   setInterval(() => {
     if (!speechSynthesis.speaking && audioUnlocked) {
@@ -353,6 +357,7 @@ if (isMobile) {
   }, 10000);
 }
 
+// 페이지 로드 시 모바일이면 배너 표시
 window.addEventListener('DOMContentLoaded', () => {
   if (isMobile) {
     document.getElementById('audioBanner').style.display = 'block';
@@ -361,7 +366,26 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // ════════════════════════════════
 //  TTS — Google Translate 음성
+//  Python gTTS와 동일한 엔진 사용
+//  → PC/iOS/Android 모두 같은 음질
+//  API 키 불필요, Audio() 태그로 재생
 // ════════════════════════════════
+let _ttsAudio = null;   // 현재 재생 중인 Audio 객체
+
+// iOS: Audio 재생은 사용자 제스처 맥락이 필요하므로
+// unlockAudio() 시점에 더미 Audio를 미리 만들어 unlock
+let _audioUnlockDummy = null;
+
+function _prewarmAudio() {
+  // 짧은 무음 mp3 data URI → iOS Audio unlock
+  _audioUnlockDummy = new Audio();
+  _audioUnlockDummy.src =
+    'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaFBsdXMgMi4wLjAuMTEgV2luZG93cwBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+  _audioUnlockDummy.volume = 0;
+  _audioUnlockDummy.play().catch(() => {});
+}
+
+// Web Speech API 음성 (fallback용)
 let _wsVoice = null;
 function _loadVoice() {
   const vs = speechSynthesis.getVoices();
@@ -379,21 +403,30 @@ function speak(val) {
   if (!audioUnlocked) return;
   const text = val.toFixed(2);
 
+  // 이전 재생 즉시 중단
+  if (_ttsAudio) {
+    _ttsAudio.pause();
+    _ttsAudio.src = '';
+    _ttsAudio = null;
+  }
+
+  // Google Translate TTS — gTTS 파라미터와 완전 일치
+  // gTTS: tl=en (en-US 아님), ttsspeed=1, total/idx/textlen/prev 필수
   const url = 'https://translate.googleapis.com/translate_tts' +
     '?ie=UTF-8' +
     '&q='       + encodeURIComponent(text) +
-    '&tl=en' + 
+    '&tl=en' +                          // gTTS 기본값 (en-US 아님)
     '&total=1&idx=0' +
     '&textlen=' + text.length +
     '&client=tw-ob' +
     '&prev=input' +
-    '&ttsspeed=1';
+    '&ttsspeed=1';                      // 1=정상속도 (gTTS 기본값)
 
-  // 핵심 변경점: 사용자 클릭으로 잠금 해제된 단일 객체의 src만 교체하여 재생
-  globalTtsAudio.pause();
-  globalTtsAudio.src = url;
-  globalTtsAudio.play().catch(() => {
-    // 네트워크 차단 등 근본적 실패 시에만 Web Speech API로 fallback
+  const audio = new Audio(url);
+  _ttsAudio = audio;
+  audio.play().catch(() => {
+    // 네트워크 차단 등 실패 시 Web Speech API로 fallback
+    _ttsAudio = null;
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
@@ -530,11 +563,12 @@ function drawChart() {
   const cH   = H - padT - padB;
   const maxV = Math.max.apply(null, repHist.map(r => r.vel).concat([0.5]));
 
+  // 점 x 좌표 계산 — 20칸 기준 고정 간격
   const step = cW / (MAX_BARS - 1);
   const ptX  = (i) => padL + i * step;
   const ptY  = (v) => padT + cH * (1 - v / maxV);
 
-  // 가이드라인
+  // ── 가이드라인 ──────────────────────
   ctx.font      = '9px monospace';
   ctx.textAlign = 'left';
   [0.5, 1.0, 1.5].forEach(v => {
@@ -549,7 +583,7 @@ function drawChart() {
     ctx.fillText(v.toFixed(1), padL + 2, y - 3);
   });
 
-  // 채우기
+  // ── 채우기 (선 아래 그라디언트) ────
   if (n >= 2) {
     const grd = ctx.createLinearGradient(0, padT, 0, padT + cH);
     grd.addColorStop(0,   'rgba(200,255,0,0.18)');
@@ -564,7 +598,7 @@ function drawChart() {
     ctx.fill();
   }
 
-  // 꺾은선
+  // ── 꺾은선 ─────────────────────────
   if (n >= 2) {
     ctx.strokeStyle = 'rgba(200,255,0,0.7)';
     ctx.lineWidth   = 2;
@@ -577,12 +611,13 @@ function drawChart() {
     ctx.stroke();
   }
 
-  // 점 + 라벨
+  // ── 점 + 라벨 ───────────────────────
   repHist.forEach((rep, i) => {
     const x  = ptX(i);
     const y  = ptY(rep.vel);
     const last = (i === n - 1);
 
+    // 점
     ctx.beginPath();
     ctx.arc(x, y, last ? 5 : 3.5, 0, Math.PI * 2);
     ctx.fillStyle   = last ? rep.color : 'rgba(255,255,255,0.75)';
@@ -593,11 +628,13 @@ function drawChart() {
       ctx.stroke();
     }
 
+    // 속도 라벨 (점 위)
     ctx.fillStyle  = last ? '#ffffff' : 'rgba(220,220,220,0.8)';
     ctx.font       = `bold ${last ? 11 : 9}px monospace`;
     ctx.textAlign  = 'center';
     ctx.fillText(rep.vel.toFixed(2), x, y - 9);
 
+    // rep 번호 (하단)
     ctx.fillStyle = 'rgba(255,255,255,0.28)';
     ctx.font      = '8px monospace';
     ctx.fillText(i + 1, x, H - padB + 12);
@@ -644,7 +681,7 @@ function emitPeak(now) {
   showPeak(val);
   beep();
   speak(val);
-  addBar(val);
+  addBar(val);   // ← try-catch 내부에서 처리됨
   repReset(); savT = now;
   repCnt++;
   document.getElementById('sRep').textContent = repCnt;
@@ -729,6 +766,8 @@ function processLine(raw) {
 
 // ════════════════════════════════
 //  WEB SERIAL
+//  자동 감지: getPorts()로 이전 허가 포트 재사용
+//  최초 1회만 포트 선택창, 이후 자동 연결
 // ════════════════════════════════
 async function toggleConn() { if (connected) await doDisc(); else await doConn(); }
 
@@ -743,19 +782,24 @@ async function openPort(p) {
 
 async function doConn() {
   if (!('serial' in navigator)) { document.getElementById('noser').classList.add('show'); return; }
+  // PC: 버튼 클릭(제스처)에서 AudioContext 생성
   if (!actx) {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     audioUnlocked = true;
   }
   if (actx.state === 'suspended') actx.resume();
   try {
+    // 이전에 허가된 포트 확인
     const prev = await navigator.serial.getPorts();
     if (prev.length === 1) {
+      // 허가된 포트가 하나 → 바로 연결
       await openPort(prev[0]);
     } else if (prev.length > 1) {
+      // 여러 개 허가된 경우 → USB 시리얼 우선 선택
       const usb = prev.find(p => p.getInfo().usbVendorId !== undefined);
       await openPort(usb || prev[0]);
     } else {
+      // 최초: 사용자에게 포트 선택창 표시
       const chosen = await navigator.serial.requestPort();
       await openPort(chosen);
     }
@@ -764,11 +808,13 @@ async function doConn() {
   }
 }
 
+// 페이지 로드 시 자동 연결 시도
 window.addEventListener('load', async () => {
   if (!('serial' in navigator)) return;
   try {
     const prev = await navigator.serial.getPorts();
     if (prev.length > 0) {
+      // 이전 허가 포트 있음 → 버튼 UI를 "자동 연결 가능" 상태로
       const btn = document.getElementById('conBtn');
       btn.textContent = 'Auto-Connect';
       btn.style.borderColor = 'var(--acc)';
@@ -796,6 +842,7 @@ async function readLoop() {
       for (const l of ls) {
         const t = l.trim();
         if (t) {
+          // ※ processLine 예외가 read loop를 죽이지 않도록 개별 try-catch
           try { processLine(t); } catch(e) { console.error('processLine:', e); }
         }
       }
@@ -806,6 +853,16 @@ async function readLoop() {
 
 // ════════════════════════════════
 //  MIRROR — MQTT 방식
+//
+//  이전 PeerJS 방식 폐기 이유:
+//  - PeerJS 무료 서버가 커스텀 Peer ID를 간헐적으로 거부
+//  - WebRTC P2P는 NAT/방화벽 환경에서 불안정
+//
+//  MQTT 방식 장점:
+//  - 서버(HiveMQ 공개 브로커)를 통한 단순 pub/sub
+//  - HOST: 코드를 topic 이름으로 발행(publish)
+//  - VIEWER: 같은 topic 구독(subscribe)
+//  - ID 충돌 없음, NAT 문제 없음, 매우 안정적
 // ════════════════════════════════
 const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
 const TOPIC_PREFIX = 'vt2025/';
@@ -814,6 +871,7 @@ let mqttClient = null;
 let mqttTopic  = null;
 let isViewer   = false;
 
+// 4자리 숫자 코드 생성
 function genCode() {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
@@ -851,6 +909,7 @@ function applyMirror(d) {
   } catch(e) { console.error('applyMirror:', e); }
 }
 
+// ── HOST: 코드 생성 후 발행 시작
 function startHost() {
   mqttDisconnect();
   isViewer = false;
@@ -878,6 +937,7 @@ function startHost() {
   mqttClient.on('close',     ()  => { hHint('브로커 연결 끊김', 'warn'); document.getElementById('mDot').className='dot'; });
 }
 
+// ── VIEWER: 코드 입력 후 구독 시작
 function joinViewer() {
   const code = document.getElementById('codeIn').value.trim();
   if (code.length !== 4 || !/^\d{4}$/.test(code)) { vHint('4자리 숫자를 입력하세요', 'err'); return; }
@@ -925,6 +985,7 @@ function hHint(m,t){const e=document.getElementById('hHint');e.textContent=m;e.c
 function vHint(m,t){const e=document.getElementById('vHint');e.textContent=m;e.className='mhint'+(t?' '+t:'');}
 function openMirror() {
   document.getElementById('mirModal').classList.add('show');
+  // 모바일(767px 이하)이면 VIEWER 탭 자동 선택
   if (window.innerWidth <= 767) switchTab('v');
 }
 function closeMirror(){ document.getElementById('mirModal').classList.remove('show'); }
