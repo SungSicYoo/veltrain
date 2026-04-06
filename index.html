@@ -403,12 +403,7 @@ function col(vel) {
 }
 
 // ════════════════════════════════
-//  BAR CHART — 개선판
-//  - 그라디언트 막대 (위 밝음, 아래 투명)
-//  - 막대 상단 연결 꺾은선
-//  - 세션 평균 점선
-//  - rep 번호 라벨
-//  - 모든 canvas 코드 try-catch
+//  LINE CHART
 // ════════════════════════════════
 const repHist = [];
 const MAX_BARS = 20;
@@ -444,100 +439,87 @@ function drawChart() {
   if (!repHist.length) return;
 
   const n    = repHist.length;
-  const padT = 28, padB = 18, padL = 30, padR = 10;
-  const aW   = W - padL - padR;
+  const padT = 24, padB = 16, padL = 10, padR = 10;
+  const cW   = W - padL - padR;
   const cH   = H - padT - padB;
+  const maxV = Math.max.apply(null, repHist.map(r => r.vel).concat([0.5]));
 
-  // 막대 크기 — 20개 기준 고정 폭 사용
-  const barW = Math.max(Math.floor(aW / MAX_BARS) - 4, 6);
-  const slot  = Math.floor(aW / MAX_BARS);          // 슬롯 너비 (고정)
-  const maxV  = Math.max.apply(null, repHist.map(r => r.vel).concat([0.5]));
-  const avgV  = repHist.reduce((s, r) => s + r.vel, 0) / n;
+  // 점 x 좌표 계산 — 20칸 기준 고정 간격
+  const step = cW / (MAX_BARS - 1);
+  const ptX  = (i) => padL + i * step;
+  const ptY  = (v) => padT + cH * (1 - v / maxV);
 
-  // ── 배경 y축 가이드라인 ──────────────────
-  const guides = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5].filter(v => v <= maxV + 0.1);
-  ctx.font      = '9px monospace';
-  ctx.textAlign = 'right';
-  guides.forEach(v => {
-    const y = padT + cH * (1 - v / maxV);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.lineWidth   = 1;
-    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.fillText(v.toFixed(2), padL - 3, y + 3);
-  });
-
-  // ── 평균 점선 ────────────────────────────
-  const avgY = padT + cH * (1 - avgV / maxV);
-  ctx.strokeStyle = 'rgba(200,255,0,0.35)';
-  ctx.lineWidth   = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath(); ctx.moveTo(padL, avgY); ctx.lineTo(W - padR, avgY); ctx.stroke();
-  ctx.setLineDash([]);
-  // 평균 라벨
-  ctx.fillStyle = 'rgba(200,255,0,0.6)';
+  // ── 가이드라인 ──────────────────────
   ctx.font      = '9px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('avg ' + avgV.toFixed(2), padL + 2, avgY - 3);
-
-  // ── 막대 + 상단 꺾은선 좌표 수집 ─────────
-  const tops = [];   // {x, y} — 꺾은선용
-
-  repHist.forEach((rep, i) => {
-    // 슬롯 중앙 정렬
-    const x    = padL + i * slot + Math.floor((slot - barW) / 2);
-    const barH = Math.max((rep.vel / maxV) * cH, 3);
-    const y    = padT + cH - barH;
-    const cx   = x + barW / 2;  // 막대 중앙 x
-    tops.push({ cx, y, rep });
-
-    // 그라디언트 막대
-    const grd = ctx.createLinearGradient(0, y, 0, y + barH);
-    grd.addColorStop(0,   rep.color);
-    grd.addColorStop(0.6, rep.color + 'AA');
-    grd.addColorStop(1,   rep.color + '22');
-    ctx.fillStyle = grd;
-    ctx.fillRect(x, y, barW, barH);
-
-    // 최신 막대: 테두리 강조
-    if (i === n - 1) {
-      ctx.strokeStyle = rep.color;
-      ctx.lineWidth   = 1.5;
-      ctx.strokeRect(x - 1, y - 1, barW + 2, barH + 2);
-    }
-
-    // 속도 라벨 (막대 위)
-    const fs = Math.min(11, Math.max(7, barW * 0.72));
-    ctx.fillStyle  = i === n - 1 ? '#ffffff' : 'rgba(230,230,230,0.85)';
-    ctx.font       = `bold ${fs}px monospace`;
-    ctx.textAlign  = 'center';
-    ctx.fillText(rep.vel.toFixed(2), cx, y - 5);
-
-    // rep 번호 (막대 아래)
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.font      = `${Math.max(7, fs - 2)}px monospace`;
-    ctx.fillText(i + 1, cx, H - padB + 11);
+  [0.5, 1.0, 1.5].forEach(v => {
+    if (v > maxV + 0.05) return;
+    const y = ptY(v);
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.fillText(v.toFixed(1), padL + 2, y - 3);
   });
 
-  // ── 상단 연결 꺾은선 ─────────────────────
-  if (tops.length >= 2) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth   = 1.5;
+  // ── 채우기 (선 아래 그라디언트) ────
+  if (n >= 2) {
+    const grd = ctx.createLinearGradient(0, padT, 0, padT + cH);
+    grd.addColorStop(0,   'rgba(200,255,0,0.18)');
+    grd.addColorStop(1,   'rgba(200,255,0,0.01)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.moveTo(ptX(0), ptY(repHist[0].vel));
+    for (let i = 1; i < n; i++) ctx.lineTo(ptX(i), ptY(repHist[i].vel));
+    ctx.lineTo(ptX(n - 1), padT + cH);
+    ctx.lineTo(ptX(0),     padT + cH);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // ── 꺾은선 ─────────────────────────
+  if (n >= 2) {
+    ctx.strokeStyle = 'rgba(200,255,0,0.7)';
+    ctx.lineWidth   = 2;
     ctx.lineJoin    = 'round';
     ctx.beginPath();
-    tops.forEach(({ cx, y }, i) => {
-      if (i === 0) ctx.moveTo(cx, y); else ctx.lineTo(cx, y);
-    });
+    for (let i = 0; i < n; i++) {
+      const x = ptX(i), y = ptY(repHist[i].vel);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
     ctx.stroke();
-
-    // 꼭짓점 원
-    tops.forEach(({ cx, y, rep }, i) => {
-      ctx.beginPath();
-      ctx.arc(cx, y, i === n - 1 ? 3.5 : 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = i === n - 1 ? rep.color : 'rgba(255,255,255,0.6)';
-      ctx.fill();
-    });
   }
+
+  // ── 점 + 라벨 ───────────────────────
+  repHist.forEach((rep, i) => {
+    const x  = ptX(i);
+    const y  = ptY(rep.vel);
+    const last = (i === n - 1);
+
+    // 점
+    ctx.beginPath();
+    ctx.arc(x, y, last ? 5 : 3.5, 0, Math.PI * 2);
+    ctx.fillStyle   = last ? rep.color : 'rgba(255,255,255,0.75)';
+    ctx.fill();
+    if (last) {
+      ctx.strokeStyle = rep.color;
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+
+    // 속도 라벨 (점 위)
+    ctx.fillStyle  = last ? '#ffffff' : 'rgba(220,220,220,0.8)';
+    ctx.font       = `bold ${last ? 11 : 9}px monospace`;
+    ctx.textAlign  = 'center';
+    ctx.fillText(rep.vel.toFixed(2), x, y - 9);
+
+    // rep 번호 (하단)
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.font      = '8px monospace';
+    ctx.fillText(i + 1, x, H - padB + 12);
+  });
 }
 
 window.addEventListener('resize', () => {
