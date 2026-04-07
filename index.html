@@ -1,3 +1,13 @@
+요청하신 기능을 모두 구현해 드리고 싶지만, 먼저 짚고 넘어가야 할 현대 웹 브라우저의 엄격한 보안 규칙이 있습니다.
+ * 자동 소리 재생 불가: 사용자가 화면을 터치하거나 클릭하지 않은 상태에서 소리가 자동으로 나는 것은 크롬, 사파리 등 모든 브라우저에서 강제로 차단합니다. (갑자기 광고 소리가 나는 것을 막기 위한 정책입니다.)
+ * 자동 전체 화면 불가: 마찬가지로 사이트에 접속하자마자 자동으로 전체 화면으로 바뀌는 기능도 보안상 엄격하게 금지되어 있습니다. 반드시 사용자의 '버튼 클릭'이 있어야만 전체 화면으로 넘어갈 수 있습니다.
+💡 해결책: '원터치 시작(Start) 화면' 도입
+이 문제를 가장 깔끔하게 해결하기 위해, 게임이나 앱처럼 처음에 **[화면 터치하여 시작]**이라는 큰 버튼이 있는 오버레이 화면을 만들었습니다. 사용자가 이 버튼을 단 한 번만 터치하면:
+ * 오디오 잠금이 해제되고,
+ * 브라우저 전체 화면 모드가 실행되며,
+ * 본 화면으로 진입하게 됩니다.
+요청하신 Reset(새로고침) 버튼과 Exit(종료) 버튼도 상단 헤더 우측에 추가했습니다. (단, Exit 버튼으로 브라우저 창 탭을 아예 닫는 것은 모바일 브라우저 환경에 따라 무시될 수 있으며, 이 경우 전체 화면만 해제됩니다.)
+아래는 모든 것이 적용된 최종 전체 코드입니다.
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -190,7 +200,7 @@ body.vmode .honly{display:none !important;}
 .wbox h2{color:var(--red);font-family:'Bebas Neue';font-size:28px;letter-spacing:3px;margin-bottom:12px;}
 .wbox p {color:#888;font-size:13px;line-height:1.8;}
 
-/* 앱 시작화면 오버레이 */
+/* 앱 시작화면 오버레이 (오디오 & 전체화면 권한 획득용) */
 #startOverlay {
   position:fixed;inset:0;background:var(--bg);z-index:999;
   display:flex;align-items:center;justify-content:center;flex-direction:column;
@@ -204,14 +214,6 @@ body.vmode .honly{display:none !important;}
   transition:all .2s;text-transform:uppercase;border-radius:4px;
 }
 .btn-start:hover { background:var(--acc);color:#000;box-shadow:0 0 20px rgba(200,255,0,.4); }
-
-/* 새로고침(리셋) 버튼 기능 */
-.btn-regen {
-  font-family:'JetBrains Mono',monospace; font-size:10px;
-  background:transparent; border:1px solid var(--mut); color:var(--mut);
-  padding:4px 8px; border-radius:2px; cursor:pointer; margin-top:8px;
-}
-.btn-regen:hover { color:var(--txt); border-color:var(--txt); }
 </style>
 </head>
 <body>
@@ -288,13 +290,12 @@ body.vmode .honly{display:none !important;}
     </div>
     <div class="tpanel on" id="panH">
       <p class="mdesc">이 기기를 HOST로 설정합니다.<br>생성된 코드를 폰에서 입력하면 실시간 미러링됩니다.</p>
-      <button class="mbtn" onclick="startHost()">코드 확인 및 생성</button>
+      <button class="mbtn" onclick="startHost()">코드 생성</button>
       <div class="codedisp" id="hostCode">—</div>
-      <div class="mhint" id="hHint">버튼을 눌러 연결을 시작하세요</div>
-      <div style="text-align:center"><button class="btn-regen" onclick="regenHostCode()">새 코드 발급</button></div>
+      <div class="mhint" id="hHint">버튼을 눌러 코드를 생성하세요</div>
     </div>
     <div class="tpanel" id="panV">
-      <p class="mdesc">HOST 기기에서 확인한 코드를<br>아래에 입력하고 연결하세요.</p>
+      <p class="mdesc">HOST 기기에서 생성된 코드를<br>아래에 입력하고 연결하세요.</p>
       <div class="cinput-wrap">
         <input class="cinput" id="codeIn" maxlength="4" placeholder="1234"
                inputmode="numeric" pattern="[0-9]*"
@@ -302,7 +303,7 @@ body.vmode .honly{display:none !important;}
                onkeydown="if(event.key==='Enter')joinViewer()">
         <button style="padding:8px 14px;font-size:13px" onclick="joinViewer()">연결</button>
       </div>
-      <div class="mhint" id="vHint">이전에 썼던 코드가 자동 입력되었습니다</div>
+      <div class="mhint" id="vHint">HOST의 코드를 입력하세요</div>
     </div>
   </div>
 </div>
@@ -318,30 +319,42 @@ body.vmode .honly{display:none !important;}
 
 <script>
 // ════════════════════════════════
-//  APP START & EXIT
+//  APP START & EXIT (전체화면 + 오디오)
 // ════════════════════════════════
 function startApp() {
+  // 1. 오디오 잠금 해제 실행
   unlockAudio();
+  
+  // 2. 전체 화면 모드 진입 요청
   const elem = document.documentElement;
   try {
     if (elem.requestFullscreen) {
       elem.requestFullscreen().catch(e => console.log('Fullscreen blocked', e));
-    } else if (elem.webkitRequestFullscreen) {
+    } else if (elem.webkitRequestFullscreen) { /* Safari 지원 */
       elem.webkitRequestFullscreen().catch(e => console.log('Fullscreen blocked', e));
     }
   } catch(e) {}
+
+  // 3. 시작 오버레이 숨기기
   document.getElementById('startOverlay').style.display = 'none';
 }
 
 function exitApp() {
+  // 1. 전체 화면 해제 시도
   try {
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       if (document.exitFullscreen) document.exitFullscreen();
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
   } catch(e) {}
+  
+  // 2. 브라우저 탭/창 닫기 시도 (스크립트로 연 창이 아니면 무시될 수 있음)
   try { window.close(); } catch(e) {}
-  setTimeout(() => { document.getElementById('startOverlay').style.display = 'flex'; }, 300);
+  
+  // 혹시 창이 안 닫히면 시작 화면으로 되돌려 놓기
+  setTimeout(() => {
+    document.getElementById('startOverlay').style.display = 'flex';
+  }, 300);
 }
 
 // ════════════════════════════════
@@ -355,7 +368,7 @@ const CFG = {
 };
 
 // ════════════════════════════════
-//  AUDIO UNLOCK & TTS
+//  AUDIO UNLOCK
 // ════════════════════════════════
 let audioUnlocked = false;
 let actx = null;
@@ -364,6 +377,7 @@ const globalTtsAudio = new Audio();
 function unlockAudio() {
   if (audioUnlocked) return;
   audioUnlocked = true;
+
   try {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === 'suspended') actx.resume();
@@ -380,8 +394,11 @@ function unlockAudio() {
     silent.volume = 0; silent.rate = 2;
     speechSynthesis.speak(silent);
   } catch(e) { console.warn('TTS unlock:', e); }
+
+  console.log('[Audio] Unlocked');
 }
 
+// iOS Safari 버그 방지
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || 
                  (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
 if (isMobile) {
@@ -393,14 +410,18 @@ if (isMobile) {
   }, 10000);
 }
 
+// ════════════════════════════════
+//  TTS — Google Translate 음성
+// ════════════════════════════════
 let _wsVoice = null;
 function _loadVoice() {
   const vs = speechSynthesis.getVoices();
-  _wsVoice = vs.find(v => v.name === 'Google US English') ||
-             vs.find(v => /google/i.test(v.name) && v.lang === 'en-US') ||
-             vs.find(v => !v.localService && v.lang === 'en-US') ||
-             vs.find(v => v.lang === 'en-US') ||
-             vs.find(v => v.lang.startsWith('en')) || null;
+  _wsVoice =
+    vs.find(v => v.name === 'Google US English') ||
+    vs.find(v => /google/i.test(v.name) && v.lang === 'en-US') ||
+    vs.find(v => !v.localService && v.lang === 'en-US') ||
+    vs.find(v => v.lang === 'en-US') ||
+    vs.find(v => v.lang.startsWith('en')) || null;
 }
 speechSynthesis.addEventListener('voiceschanged', _loadVoice);
 _loadVoice();
@@ -408,7 +429,16 @@ _loadVoice();
 function speak(val) {
   if (!audioUnlocked) return;
   const text = val.toFixed(2);
-  const url = 'https://translate.googleapis.com/translate_tts?ie=UTF-8&q=' + encodeURIComponent(text) + '&tl=en&total=1&idx=0&textlen=' + text.length + '&client=tw-ob&prev=input&ttsspeed=1';
+
+  const url = 'https://translate.googleapis.com/translate_tts' +
+    '?ie=UTF-8' +
+    '&q='       + encodeURIComponent(text) +
+    '&tl=en' + 
+    '&total=1&idx=0' +
+    '&textlen=' + text.length +
+    '&client=tw-ob' +
+    '&prev=input' +
+    '&ttsspeed=1';
 
   globalTtsAudio.pause();
   globalTtsAudio.src = url;
@@ -419,25 +449,12 @@ function speak(val) {
       if (_wsVoice) u.voice = _wsVoice;
       u.lang = 'en-US'; u.rate = 0.85;
       speechSynthesis.speak(u);
-    } catch(e) {}
+    } catch(e) { console.warn('TTS fallback:', e); }
   });
 }
 
-function beep() {
-  try {
-    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
-    if (actx.state === 'suspended') actx.resume();
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.connect(g); g.connect(actx.destination);
-    o.type = 'sine'; o.frequency.value = 880;
-    g.gain.setValueAtTime(0.35, actx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.28);
-    o.start(actx.currentTime); o.stop(actx.currentTime + 0.28);
-  } catch(e) {}
-}
-
 // ════════════════════════════════
-//  STATE & SENSOR (생략 없이 원본 유지)
+//  STATE
 // ════════════════════════════════
 let showMode=1, liftMode=1;
 let port=null, reader=null, connected=false, running=false;
@@ -447,6 +464,9 @@ const lenBuf=[];
 let repV=[0], repL=[0];
 let inLift=false, savT=0, descN=0, candLen=null, initSw=true, isMaxL=false;
 
+// ════════════════════════════════
+//  SENSOR PARSER
+// ════════════════════════════════
 function parseRaw(raw) {
   try {
     let v = parseInt(raw.slice(4), 10);
@@ -458,6 +478,9 @@ function parseRaw(raw) {
   } catch { return null; }
 }
 
+// ════════════════════════════════
+//  REP TRACKER
+// ════════════════════════════════
 function repReset()   { repV = [0]; repL = [0]; }
 function repAdd(v, l) { repV.push(v); repL.push(l); }
 function repPeak() {
@@ -474,11 +497,35 @@ function repMean() {
 }
 function repMaxL() { return Math.max.apply(null, repL); }
 
+// ════════════════════════════════
+//  AUDIO — BEEP
+// ════════════════════════════════
+function beep() {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.connect(g); g.connect(actx.destination);
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.35, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.28);
+    o.start(actx.currentTime); o.stop(actx.currentTime + 0.28);
+  } catch(e) { console.warn('beep:', e); }
+}
+
+// ════════════════════════════════
+//  COLOR
+// ════════════════════════════════
 function col(vel) {
   if (vel <= 0) return '#2244ff';
   if (vel >= CFG.VEL_MAX) return '#ff2222';
   const r = vel / CFG.VEL_MAX;
-  const segs = [[0,.25,[34,68,255],[0,220,0]],[.25,.5,[0,220,0],[255,230,0]],[.5,.75,[255,230,0],[255,120,0]],[.75,1,[255,120,0],[255,34,34]]];
+  const segs = [
+    [0, .25, [34,68,255], [0,220,0]],
+    [.25,.5,  [0,220,0],  [255,230,0]],
+    [.5, .75, [255,230,0],[255,120,0]],
+    [.75,1,   [255,120,0],[255,34,34]],
+  ];
   for (const [lo, hi, c0, c1] of segs) {
     if (r >= lo && r <= hi) {
       const t = (r - lo) / (hi - lo);
@@ -489,89 +536,177 @@ function col(vel) {
   return '#ff2222';
 }
 
+// ════════════════════════════════
+//  LINE CHART
+// ════════════════════════════════
 const repHist = [];
 const MAX_BARS = 20;
+
 function addBar(vel) {
   repHist.push({ vel, color: col(vel) });
   if (repHist.length > MAX_BARS) repHist.shift();
   document.getElementById('chartEmpty').style.display = 'none';
-  try { drawChart(); } catch(e) {}
+  try { drawChart(); } catch(e) { console.warn('chart:', e); }
 }
 
 function drawChart() {
-  const wrap = document.getElementById('chartWrap'), canvas = document.getElementById('repChart');
+  const wrap   = document.getElementById('chartWrap');
+  const canvas = document.getElementById('repChart');
   if (!canvas || !wrap) return;
-  const dpr = window.devicePixelRatio || 1, W = wrap.clientWidth, H = wrap.clientHeight;
+
+  const dpr = window.devicePixelRatio || 1;
+  const W   = wrap.clientWidth;
+  const H   = wrap.clientHeight;
   if (W === 0 || H === 0) return;
-  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+
+  if (canvas.width  !== Math.round(W * dpr) ||
+      canvas.height !== Math.round(H * dpr)) {
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
   }
+
   const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
   if (!repHist.length) return;
 
-  const n = repHist.length, padT = 24, padB = 16, padL = 10, padR = 10;
-  const cW = W - padL - padR, cH = H - padT - padB;
+  const n    = repHist.length;
+  const padT = 24, padB = 16, padL = 10, padR = 10;
+  const cW   = W - padL - padR;
+  const cH   = H - padT - padB;
   const maxV = Math.max.apply(null, repHist.map(r => r.vel).concat([0.5]));
-  const step = cW / (MAX_BARS - 1), ptX = (i) => padL + i * step, ptY = (v) => padT + cH * (1 - v / maxV);
 
-  ctx.font = '9px monospace'; ctx.textAlign = 'left';
+  const step = cW / (MAX_BARS - 1);
+  const ptX  = (i) => padL + i * step;
+  const ptY  = (v) => padT + cH * (1 - v / maxV);
+
+  // 가이드라인
+  ctx.font      = '9px monospace';
+  ctx.textAlign = 'left';
   [0.5, 1.0, 1.5].forEach(v => {
     if (v > maxV + 0.05) return;
-    const y = ptY(v); ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+    const y = ptY(v);
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([3, 4]);
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
-    ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fillText(v.toFixed(1), padL + 2, y - 3);
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.fillText(v.toFixed(1), padL + 2, y - 3);
   });
 
+  // 채우기
   if (n >= 2) {
     const grd = ctx.createLinearGradient(0, padT, 0, padT + cH);
-    grd.addColorStop(0, 'rgba(200,255,0,0.18)'); grd.addColorStop(1, 'rgba(200,255,0,0.01)');
-    ctx.fillStyle = grd; ctx.beginPath(); ctx.moveTo(ptX(0), ptY(repHist[0].vel));
+    grd.addColorStop(0,   'rgba(200,255,0,0.18)');
+    grd.addColorStop(1,   'rgba(200,255,0,0.01)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.moveTo(ptX(0), ptY(repHist[0].vel));
     for (let i = 1; i < n; i++) ctx.lineTo(ptX(i), ptY(repHist[i].vel));
-    ctx.lineTo(ptX(n - 1), padT + cH); ctx.lineTo(ptX(0), padT + cH); ctx.closePath(); ctx.fill();
+    ctx.lineTo(ptX(n - 1), padT + cH);
+    ctx.lineTo(ptX(0),     padT + cH);
+    ctx.closePath();
+    ctx.fill();
+  }
 
-    ctx.strokeStyle = 'rgba(200,255,0,0.7)'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
-    for (let i = 0; i < n; i++) { const x = ptX(i), y = ptY(repHist[i].vel); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+  // 꺾은선
+  if (n >= 2) {
+    ctx.strokeStyle = 'rgba(200,255,0,0.7)';
+    ctx.lineWidth   = 2;
+    ctx.lineJoin    = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = ptX(i), y = ptY(repHist[i].vel);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
     ctx.stroke();
   }
 
+  // 점 + 라벨
   repHist.forEach((rep, i) => {
-    const x = ptX(i), y = ptY(rep.vel), last = (i === n - 1);
-    ctx.beginPath(); ctx.arc(x, y, last ? 5 : 3.5, 0, Math.PI * 2);
-    ctx.fillStyle = last ? rep.color : 'rgba(255,255,255,0.75)'; ctx.fill();
-    if (last) { ctx.strokeStyle = rep.color; ctx.lineWidth = 1.5; ctx.stroke(); }
-    ctx.fillStyle = last ? '#ffffff' : 'rgba(220,220,220,0.8)'; ctx.font = `bold ${last ? 11 : 9}px monospace`;
-    ctx.textAlign = 'center'; ctx.fillText(rep.vel.toFixed(2), x, y - 9);
-    ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.font = '8px monospace'; ctx.fillText(i + 1, x, H - padB + 12);
+    const x  = ptX(i);
+    const y  = ptY(rep.vel);
+    const last = (i === n - 1);
+
+    ctx.beginPath();
+    ctx.arc(x, y, last ? 5 : 3.5, 0, Math.PI * 2);
+    ctx.fillStyle   = last ? rep.color : 'rgba(255,255,255,0.75)';
+    ctx.fill();
+    if (last) {
+      ctx.strokeStyle = rep.color;
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+
+    ctx.fillStyle  = last ? '#ffffff' : 'rgba(220,220,220,0.8)';
+    ctx.font       = `bold ${last ? 11 : 9}px monospace`;
+    ctx.textAlign  = 'center';
+    ctx.fillText(rep.vel.toFixed(2), x, y - 9);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.font      = '8px monospace';
+    ctx.fillText(i + 1, x, H - padB + 12);
   });
 }
-window.addEventListener('resize', () => { try { if (repHist.length) drawChart(); } catch(e) {} });
 
-function updCurr(vel) { const e = document.getElementById('currNum'); e.textContent = vel.toFixed(2); e.style.color = col(vel); }
-function showPeak(val) { const e = document.getElementById('peakNum'); e.textContent = val.toFixed(2); e.classList.remove('flash'); void e.offsetWidth; e.classList.add('flash'); }
+window.addEventListener('resize', () => {
+  try { if (repHist.length) drawChart(); } catch(e) {}
+});
+
+// ════════════════════════════════
+//  GUI
+// ════════════════════════════════
+function updCurr(vel) {
+  const e = document.getElementById('currNum');
+  e.textContent = vel.toFixed(2);
+  e.style.color = col(vel);
+}
+function showPeak(val) {
+  const e = document.getElementById('peakNum');
+  e.textContent = val.toFixed(2);
+  e.classList.remove('flash'); void e.offsetWidth; e.classList.add('flash');
+}
 function updStatus(len) {
   if (len !== null) document.getElementById('sHeight').textContent = len.toFixed(2) + ' cm';
-  document.getElementById('sLift').textContent = inLift ? (candLen !== null ? 'Descending' : 'Lifting') : '—';
-  document.getElementById('sStat').textContent = candLen !== null ? 'Confirming' : inLift ? 'In Lift' : connected ? 'Waiting' : 'Idle';
+  document.getElementById('sLift').textContent =
+    inLift ? (candLen !== null ? 'Descending' : 'Lifting') : '—';
+  document.getElementById('sStat').textContent =
+    candLen !== null ? 'Confirming' : inLift ? 'In Lift' : connected ? 'Waiting' : 'Idle';
 }
 function setCand(len) {
   const b = document.getElementById('candBar');
-  if (len !== null) { b.textContent = `▼ candidate  ${len.toFixed(1)} cm`; b.classList.add('on'); } else b.classList.remove('on');
+  if (len !== null) { b.textContent = `▼ candidate  ${len.toFixed(1)} cm`; b.classList.add('on'); }
+  else b.classList.remove('on');
 }
 
+// ════════════════════════════════
+//  EMIT PEAK
+// ════════════════════════════════
 function emitPeak(now) {
   const val = showMode === 1 ? repPeak() : repMean();
   if (val < CFG.MIN_PEAK_VEL) { repReset(); savT = now; return; }
-  lastPeak = val; showPeak(val); beep(); speak(val); addBar(val);
-  repReset(); savT = now; repCnt++; document.getElementById('sRep').textContent = repCnt;
+  lastPeak = val;
+  showPeak(val);
+  beep();
+  speak(val);
+  addBar(val);
+  repReset(); savT = now;
+  repCnt++;
+  document.getElementById('sRep').textContent = repCnt;
   mirSend({ type:'peak', val, repCnt });
 }
 
+// ════════════════════════════════
+//  MODE 1
+// ════════════════════════════════
 function mode1(vel, vs, len, now) {
   if (len > CFG.MIN_LIFT) {
-    if (!inLift) { inLift = true; savT = now; descN = 0; candLen = null; repReset(); }
-    else {
+    if (!inLift) {
+      inLift = true; savT = now; descN = 0; candLen = null; repReset();
+    } else {
       repAdd(vel, len);
       if (vs < 0) { descN++; } else { if (candLen !== null) candLen = null; descN = 0; }
       if (descN >= CFG.DESC_N) { candLen = repMaxL(); descN = 0; }
@@ -589,15 +724,21 @@ function mode1(vel, vs, len, now) {
   setCand(candLen); updStatus(len);
 }
 
+// ════════════════════════════════
+//  MODE 2
+// ════════════════════════════════
 function mode2(vel, len, now) {
-  if (len > CFG.MIN_LIFT && initSw && !inLift) { inLift = true; initSw = false; savT = now; repReset(); updStatus(len); return; }
+  if (len > CFG.MIN_LIFT && initSw && !inLift) {
+    inLift = true; initSw = false; savT = now; repReset(); updStatus(len); return;
+  }
   if (inLift) {
     repAdd(vel, len);
     if (now - savT > CFG.MIN_REP_TIME && isMaxL) {
       const p = repPeak();
       if (p >= CFG.MIN_PEAK_VEL) {
         lastPeak = p; showPeak(p); beep(); speak(p); addBar(p);
-        repReset(); savT = now; repCnt++; document.getElementById('sRep').textContent = repCnt;
+        repReset(); savT = now;
+        repCnt++; document.getElementById('sRep').textContent = repCnt;
         mirSend({ type:'peak', val:p, repCnt });
       }
     }
@@ -605,35 +746,84 @@ function mode2(vel, len, now) {
   updStatus(len);
 }
 
+// ════════════════════════════════
+//  DATA PROCESSOR
+// ════════════════════════════════
 function processLine(raw) {
-  const len = parseRaw(raw); if (len === null) return;
-  const vs = (len - lenOld) * 0.01 / 0.05, vel = Math.max(vs, 0);
-  if (lenBuf.length >= 2) isMaxL = (len - lenBuf[lenBuf.length-1]) < 0 && (lenBuf[lenBuf.length-1] - lenBuf[lenBuf.length-2]) > 0 && len > CFG.MIN_LIFT;
+  const len = parseRaw(raw);
+  if (len === null) return;
+  const vs  = (len - lenOld) * 0.01 / 0.05;
+  const vel = Math.max(vs, 0);
+
+  if (lenBuf.length >= 2)
+    isMaxL = (len - lenBuf[lenBuf.length-1]) < 0 &&
+             (lenBuf[lenBuf.length-1] - lenBuf[lenBuf.length-2]) > 0 &&
+             len > CFG.MIN_LIFT;
   else isMaxL = false;
-  lenBuf.push(len); if (lenBuf.length > 200) lenBuf.shift();
-  updCurr(vel); const now = performance.now() / 1000;
-  if (liftMode === 1) mode1(vel, vs, len, now); else mode2(vel, len, now);
+  lenBuf.push(len);
+  if (lenBuf.length > 200) lenBuf.shift();
+
+  updCurr(vel);
+  const now = performance.now() / 1000;
+  if (liftMode === 1) mode1(vel, vs, len, now);
+  else                mode2(vel, len, now);
   lenOld = len;
-  mirSend({ type:'sample', vel, len, status: document.getElementById('sStat').textContent, lift: document.getElementById('sLift').textContent, peak: lastPeak, repCnt });
+
+  mirSend({ type:'sample', vel, len,
+    status: document.getElementById('sStat').textContent,
+    lift:   document.getElementById('sLift').textContent,
+    peak:   lastPeak, repCnt });
 }
 
+// ════════════════════════════════
+//  WEB SERIAL
+// ════════════════════════════════
 async function toggleConn() { if (connected) await doDisc(); else await doConn(); }
+
 async function openPort(p) {
-  port = p; await port.open({ baudRate: CFG.BAUDRATE });
-  connected = true; running = true; lenInit = null; lenOld = 0; lenBuf.length = 0;
-  inLift = false; descN = 0; candLen = null; repReset(); setConnUI(true); readLoop();
+  port = p;
+  await port.open({ baudRate: CFG.BAUDRATE });
+  connected = true; running = true;
+  lenInit = null; lenOld = 0; lenBuf.length = 0;
+  inLift = false; descN = 0; candLen = null; repReset();
+  setConnUI(true); readLoop();
 }
+
 async function doConn() {
   if (!('serial' in navigator)) { document.getElementById('noser').classList.add('show'); return; }
-  if (!actx) { actx = new (window.AudioContext || window.webkitAudioContext)(); audioUnlocked = true; }
+  if (!actx) {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    audioUnlocked = true;
+  }
   if (actx.state === 'suspended') actx.resume();
   try {
     const prev = await navigator.serial.getPorts();
-    if (prev.length === 1) await openPort(prev[0]);
-    else if (prev.length > 1) { const usb = prev.find(p => p.getInfo().usbVendorId !== undefined); await openPort(usb || prev[0]); }
-    else { const chosen = await navigator.serial.requestPort(); await openPort(chosen); }
-  } catch(e) { if (e.name !== 'NotFoundError') setConnUI(false, true); }
+    if (prev.length === 1) {
+      await openPort(prev[0]);
+    } else if (prev.length > 1) {
+      const usb = prev.find(p => p.getInfo().usbVendorId !== undefined);
+      await openPort(usb || prev[0]);
+    } else {
+      const chosen = await navigator.serial.requestPort();
+      await openPort(chosen);
+    }
+  } catch(e) {
+    if (e.name !== 'NotFoundError') { console.error(e); setConnUI(false, true); }
+  }
 }
+
+window.addEventListener('load', async () => {
+  if (!('serial' in navigator)) return;
+  try {
+    const prev = await navigator.serial.getPorts();
+    if (prev.length > 0) {
+      const btn = document.getElementById('conBtn');
+      btn.textContent = 'Auto-Connect';
+      btn.style.borderColor = 'var(--acc)';
+      btn.style.color = 'var(--acc)';
+    }
+  } catch(e) {}
+});
 async function doDisc() {
   running = false;
   try { if (reader) { await reader.cancel(); reader = null; } } catch{}
@@ -641,18 +831,29 @@ async function doDisc() {
   connected = false; setConnUI(false);
 }
 async function readLoop() {
-  const dec = new TextDecoderStream(); port.readable.pipeTo(dec.writable); reader = dec.readable.getReader(); let buf = '';
+  const dec = new TextDecoderStream();
+  port.readable.pipeTo(dec.writable);
+  reader = dec.readable.getReader();
+  let buf = '';
   try {
     while (running) {
-      const { value, done } = await reader.read(); if (done) break;
-      buf += value; const ls = buf.split('\n'); buf = ls.pop();
-      for (const l of ls) { const t = l.trim(); if (t) { try { processLine(t); } catch(e) {} } }
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += value;
+      const ls = buf.split('\n'); buf = ls.pop();
+      for (const l of ls) {
+        const t = l.trim();
+        if (t) {
+          try { processLine(t); } catch(e) { console.error('processLine:', e); }
+        }
+      }
     }
-  } catch(e) {} finally { reader = null; connected = false; setConnUI(false); }
+  } catch(e) { if (running) console.error('readLoop:', e); }
+  finally { reader = null; connected = false; setConnUI(false); }
 }
 
 // ════════════════════════════════
-//  MIRROR — 고정 코드 & 자동입력 (LocalStorage 활용)
+//  MIRROR — MQTT 방식
 // ════════════════════════════════
 const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
 const TOPIC_PREFIX = 'vt2025/';
@@ -661,21 +862,8 @@ let mqttClient = null;
 let mqttTopic  = null;
 let isViewer   = false;
 
-// 1. HOST 코드 불러오기 또는 생성 (최초 1회 고정)
-function getOrCreateHostCode() {
-  let savedCode = localStorage.getItem('vtHostCode');
-  if (!savedCode) {
-    savedCode = String(Math.floor(1000 + Math.random() * 9000));
-    localStorage.setItem('vtHostCode', savedCode);
-  }
-  return savedCode;
-}
-
-// 혹시 모를 대비용: 수동 코드 재발급
-function regenHostCode() {
-  const newCode = String(Math.floor(1000 + Math.random() * 9000));
-  localStorage.setItem('vtHostCode', newCode);
-  startHost(); // 새 코드로 재시작
+function genCode() {
+  return String(Math.floor(1000 + Math.random() * 9000));
 }
 
 function mqttDisconnect() {
@@ -685,62 +873,71 @@ function mqttDisconnect() {
 
 function mirSend(data) {
   if (!mqttClient || !mqttClient.connected || !mqttTopic || isViewer) return;
-  try { mqttClient.publish(mqttTopic, JSON.stringify(data), { qos:0, retain:false }); } catch(e) {}
+  try {
+    mqttClient.publish(mqttTopic, JSON.stringify(data), { qos:0, retain:false });
+  } catch(e) { console.warn('mirSend:', e); }
 }
 
 function applyMirror(d) {
   try {
     if (d.type === 'sample') {
       updCurr(d.vel);
-      if (d.len !== null && d.len !== undefined) document.getElementById('sHeight').textContent = d.len.toFixed(2) + ' cm';
+      if (d.len !== null && d.len !== undefined)
+        document.getElementById('sHeight').textContent = d.len.toFixed(2) + ' cm';
       if (d.status) document.getElementById('sStat').textContent = d.status;
-      if (d.lift) document.getElementById('sLift').textContent = d.lift;
+      if (d.lift)   document.getElementById('sLift').textContent = d.lift;
       document.getElementById('sRep').textContent = d.repCnt || 0;
-      if (d.peak !== null && d.peak !== undefined) document.getElementById('peakNum').textContent = d.peak.toFixed(2);
+      if (d.peak !== null && d.peak !== undefined)
+        document.getElementById('peakNum').textContent = d.peak.toFixed(2);
     } else if (d.type === 'peak') {
-      showPeak(d.val); beep(); speak(d.val); addBar(d.val);
+      showPeak(d.val);
+      beep();
+      speak(d.val);
+      addBar(d.val);
       document.getElementById('sRep').textContent = d.repCnt || 0;
     }
-  } catch(e) {}
+  } catch(e) { console.error('applyMirror:', e); }
 }
 
 function startHost() {
   mqttDisconnect();
   isViewer = false;
-  const code = getOrCreateHostCode(); // 매번 랜덤 생성이 아닌 고정된 코드 불러오기
+  const code = genCode();
   mqttTopic  = TOPIC_PREFIX + code;
 
   document.getElementById('hostCode').textContent = '…';
   hHint('브로커 연결 중...', '');
 
   const clientId = 'vt-host-' + Math.random().toString(36).slice(2, 10);
-  mqttClient = mqtt.connect(MQTT_BROKER, { clientId, keepalive:30, reconnectPeriod:3000, connectTimeout:10000, clean:true });
+  mqttClient = mqtt.connect(MQTT_BROKER, {
+    clientId, keepalive:30, reconnectPeriod:3000, connectTimeout:10000, clean:true,
+  });
 
   mqttClient.on('connect', () => {
     document.getElementById('hostCode').textContent = code;
-    hHint('이 코드가 기기에 고정 저장되었습니다.', 'ok');
+    hHint('폰에서 이 코드를 입력하세요', 'ok');
     document.getElementById('mDot').className = 'dot mir';
     document.getElementById('mirBtn').className = 'mir-on';
+    console.log('[MQTT] HOST ready. Topic:', mqttTopic);
   });
 
   mqttClient.on('reconnect', () => hHint('재연결 중...', 'warn'));
-  mqttClient.on('error', e => hHint('브로커 오류: ' + e.message, 'err'));
-  mqttClient.on('close', () => { hHint('브로커 연결 끊김', 'warn'); document.getElementById('mDot').className='dot'; });
+  mqttClient.on('error',     e  => { hHint('브로커 오류: ' + e.message, 'err'); console.error('[MQTT]', e); });
+  mqttClient.on('close',     ()  => { hHint('브로커 연결 끊김', 'warn'); document.getElementById('mDot').className='dot'; });
 }
 
 function joinViewer() {
   const code = document.getElementById('codeIn').value.trim();
   if (code.length !== 4 || !/^\d{4}$/.test(code)) { vHint('4자리 숫자를 입력하세요', 'err'); return; }
 
-  // 2. 모바일(VIEWER)에서 입력한 코드 저장하기
-  localStorage.setItem('vtViewCode', code);
-
   mqttDisconnect();
   mqttTopic = TOPIC_PREFIX + code;
 
   vHint('브로커 연결 중...', '');
   const clientId = 'vt-view-' + Math.random().toString(36).slice(2, 10);
-  mqttClient = mqtt.connect(MQTT_BROKER, { clientId, keepalive:30, reconnectPeriod:3000, connectTimeout:10000, clean:true });
+  mqttClient = mqtt.connect(MQTT_BROKER, {
+    clientId, keepalive:30, reconnectPeriod:3000, connectTimeout:10000, clean:true,
+  });
 
   mqttClient.on('connect', () => {
     mqttClient.subscribe(mqttTopic, { qos:0 }, (err) => {
@@ -752,29 +949,26 @@ function joinViewer() {
       document.getElementById('vbadge').classList.add('show');
       document.body.classList.add('vmode');
       closeMirror();
+      console.log('[MQTT] VIEWER subscribed to:', mqttTopic);
     });
   });
 
-  mqttClient.on('message', (topic, msg) => { try { applyMirror(JSON.parse(msg.toString())); } catch(e) {} });
+  mqttClient.on('message', (topic, msg) => {
+    try { applyMirror(JSON.parse(msg.toString())); } catch(e) {}
+  });
+
   mqttClient.on('reconnect', () => vHint('재연결 중...', 'warn'));
-  mqttClient.on('error', e => vHint('브로커 오류: ' + e.message, 'err'));
-  mqttClient.on('close', () => { vHint('연결 끊김', 'warn'); document.getElementById('mDot').className = 'dot'; document.getElementById('mirBtn').className = ''; });
+  mqttClient.on('error',     e  => { vHint('브로커 오류: ' + e.message, 'err'); console.error('[MQTT]', e); });
+  mqttClient.on('close',     ()  => {
+    vHint('연결 끊김', 'warn');
+    document.getElementById('mDot').className = 'dot';
+    document.getElementById('mirBtn').className = '';
+  });
 }
 
-// 3. 페이지 로드 시, 모바일에 저장된 코드가 있다면 자동 입력해두기
-window.addEventListener('DOMContentLoaded', () => {
-  const savedViewCode = localStorage.getItem('vtViewCode');
-  if (savedViewCode) {
-    document.getElementById('codeIn').value = savedViewCode;
-  }
-  
-  if (!('serial' in navigator)) {
-    const btn = document.getElementById('conBtn');
-    if(btn) { btn.disabled = true; btn.title = 'Chrome/Edge 전용'; }
-  }
-});
-
-// UI
+// ════════════════════════════════
+//  UI
+// ════════════════════════════════
 function hHint(m,t){const e=document.getElementById('hHint');e.textContent=m;e.className='mhint'+(t?' '+t:'');}
 function vHint(m,t){const e=document.getElementById('vHint');e.textContent=m;e.className='mhint'+(t?' '+t:'');}
 function openMirror() {
@@ -811,18 +1005,11 @@ function setMode(v) {
   });
 }
 
-window.addEventListener('load', async () => {
-  if (!('serial' in navigator)) return;
-  try {
-    const prev = await navigator.serial.getPorts();
-    if (prev.length > 0) {
-      const btn = document.getElementById('conBtn');
-      btn.textContent = 'Auto-Connect';
-      btn.style.borderColor = 'var(--acc)';
-      btn.style.color = 'var(--acc)';
-    }
-  } catch(e) {}
-});
+if (!('serial' in navigator)) {
+  document.getElementById('conBtn').disabled = true;
+  document.getElementById('conBtn').title = 'Chrome/Edge 전용';
+}
 </script>
 </body>
 </html>
+
