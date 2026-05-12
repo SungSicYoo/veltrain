@@ -689,17 +689,17 @@ function emitPeak(now) {
   mirSend({ type:'peak', val, repCnt });
 }
 
-// ════════════════════════════════
-//  MODE 1
-// ════════════════════════════════
+// ════ MODE 1 ════
 function mode1(vel, vs, len, now) {
   if (len > CFG.MIN_LIFT) {
     if (!inLift) {
       inLift = true; savT = now; descN = 0; candLen = null; repReset();
     } else {
-      repAdd(vel, len);
-      if (vs < 0) { descN++; } else { if (candLen !== null) candLen = null; descN = 0; }
-      if (descN >= CFG.DESC_N) { candLen = repMaxL(); descN = 0; }
+      if (candLen === null) {
+        repAdd(vel, len);
+        if (vs < 0) { descN++; } else { descN = 0; }
+        if (descN >= CFG.DESC_N) { candLen = repMaxL(); descN = 0; }
+      }
       if (candLen !== null && len <= candLen / 2) {
         if (now - savT >= CFG.MIN_REP_TIME) emitPeak(now);
         inLift = false; descN = 0; candLen = null;
