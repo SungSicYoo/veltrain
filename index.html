@@ -1,13 +1,15 @@
 <!DOCTYPE html>
- 
+
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VelTrain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;700&display=swap');
 :root {
   --bg:#080808; --surf:#101010; --brd:#1e1e1e;
   --txt:#e8e8e8; --mut:#555; --acc:#c8ff00;
@@ -28,7 +30,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{
-background:var(–bg);color:var(–txt);
+background:#080808;background:var(–bg);color:#e8e8e8;color:var(–txt);
 font-family:‘JetBrains Mono’,monospace;
 height:100dvh;
 display:grid;grid-template-rows:auto 1fr auto auto;
@@ -37,7 +39,7 @@ overflow:hidden;user-select:none;
 /* HEADER */
 header{
 display:flex;align-items:center;gap:10px;
-padding:var(–ph);background:var(–surf);
+padding:var(–ph);background:#101010;background:var(–surf);
 border-bottom:1px solid var(–brd);flex-wrap:wrap;
 }
 .brand{font-family:‘Bebas Neue’,sans-serif;font-size:var(–fb);letter-spacing:4px;color:var(–acc);text-shadow:0 0 20px var(–glow);flex-shrink:0;}
@@ -93,7 +95,7 @@ gap:12px; padding:10px 20px; flex:0 0 auto; }
 .panel.curr .vel-unit{ margin-top:0; font-size:13px; }
 }
 .panel{
-background:var(–bg);display:flex;flex-direction:column;
+background:#080808;background:var(–bg);display:flex;flex-direction:column;
 align-items:center;justify-content:center;
 padding:20px;position:relative;overflow:hidden;
 }
@@ -120,7 +122,7 @@ opacity:0;transition:opacity .2s;text-transform:uppercase;white-space:nowrap;
 .cand-bar.on{opacity:1;}
 
 /* FOOTER */
-footer{display:grid;grid-template-columns:repeat(4,1fr);background:var(–surf);border-top:1px solid var(–brd);}
+footer{display:grid;grid-template-columns:repeat(4,1fr);background:#101010;background:var(–surf);border-top:1px solid var(–brd);}
 .stat{padding:var(–ps);border-right:1px solid var(–brd);}
 .stat:last-child{border-right:none;}
 .skey{color:var(–mut);text-transform:uppercase;font-size:var(–fsk);letter-spacing:1px;margin-bottom:2px;}
@@ -128,7 +130,7 @@ footer{display:grid;grid-template-columns:repeat(4,1fr);background:var(–surf);
 
 /* CHART */
 #chartWrap{
-background:var(–bg);border-top:1px solid var(–brd);
+background:#080808;background:var(–bg);border-top:1px solid var(–brd);
 height:var(–ch);position:relative;overflow:hidden;
 }
 #repChart{display:block;width:100%;height:100%;}
@@ -193,7 +195,7 @@ body.vmode .honly{display:none !important;}
 
 /* 앱 시작화면 오버레이 (오디오 & 전체화면 권한 획득용) */
 #startOverlay {
-position:fixed;inset:0;background:var(–bg);z-index:999;
+position:fixed;inset:0;background:#080808;background:var(–bg);z-index:999;
 display:flex;align-items:center;justify-content:center;flex-direction:column;
 }
 #startOverlay h1 { font-family:‘Bebas Neue’;font-size:64px;color:var(–acc);margin-bottom:10px;letter-spacing:6px;text-shadow:0 0 30px var(–glow); }
