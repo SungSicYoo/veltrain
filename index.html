@@ -453,6 +453,8 @@ let lenInit=null, lenOld=0;
 const lenBuf=[];
 let repV=[0], repL=[0];
 let inLift=false, savT=0, descN=0, candLen=null, initSw=true, isMaxL=false;
+let inLift=false, savT=0, descN=0, candLen=null, initSw=true, isMaxL=false;
+let lastEmitT = 0; // ← 이 줄 추가
 
 // ════════════════════════════════
 //  SENSOR PARSER
@@ -693,6 +695,7 @@ function emitPeak(now) {
 function mode1(vel, vs, len, now) {
   if (len > CFG.MIN_LIFT) {
     if (!inLift) {
+      if (now - lastEmitT < 0.8) { setCand(candLen); updStatus(len); return; }
       inLift = true; savT = now; descN = 0; candLen = null; repReset();
     } else {
       if (candLen === null) {
@@ -701,18 +704,19 @@ function mode1(vel, vs, len, now) {
         if (descN >= CFG.DESC_N) { candLen = repMaxL(); descN = 0; }
       }
       if (candLen !== null && len <= candLen / 2) {
-        if (now - savT >= CFG.MIN_REP_TIME) emitPeak(now);
+        if (now - savT >= CFG.MIN_REP_TIME) { emitPeak(now); lastEmitT = now; }
         inLift = false; descN = 0; candLen = null;
       }
     }
   } else {
     if (inLift) {
-      if (now - savT >= CFG.MIN_REP_TIME) emitPeak(now);
+      if (now - savT >= CFG.MIN_REP_TIME) { emitPeak(now); lastEmitT = now; }
       inLift = false; descN = 0; candLen = null; initSw = true;
     }
   }
   setCand(candLen); updStatus(len);
 }
+
 
 // ════════════════════════════════
 //  MODE 2
