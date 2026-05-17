@@ -230,7 +230,14 @@ body.vmode .honly{display:none !important;}
     <button class="tog sel" id="tDef"  onclick="setMode(1)">Default</button>
     <button class="tog"     id="tLung" onclick="setMode(2)">Lunge</button>
   </div>
-  
+  <div class="tgroup honly" id="cdGroup">
+    <button class="tog"     onclick="setCooldown(this,0.5)">0.5s</button>
+    <button class="tog"     onclick="setCooldown(this,1)">1s</button>
+    <button class="tog"     onclick="setCooldown(this,1.5)">1.5s</button>
+    <button class="tog sel" onclick="setCooldown(this,2)">2s</button>
+    <button class="tog"     onclick="setCooldown(this,3)">3s</button>
+  </div>
+
   <div class="mir-row">
     <div class="sep"></div>
     <div class="dot" id="mDot"></div>
@@ -312,36 +319,26 @@ body.vmode .honly{display:none !important;}
 //  APP START & EXIT (전체화면 + 오디오)
 // ════════════════════════════════
 function startApp() {
-  // 1. 오디오 잠금 해제 실행
   unlockAudio();
-  
-  // 2. 전체 화면 모드 진입 요청
   const elem = document.documentElement;
   try {
     if (elem.requestFullscreen) {
       elem.requestFullscreen().catch(e => console.log('Fullscreen blocked', e));
-    } else if (elem.webkitRequestFullscreen) { /* Safari 지원 */
+    } else if (elem.webkitRequestFullscreen) {
       elem.webkitRequestFullscreen().catch(e => console.log('Fullscreen blocked', e));
     }
   } catch(e) {}
-
-  // 3. 시작 오버레이 숨기기
   document.getElementById('startOverlay').style.display = 'none';
 }
 
 function exitApp() {
-  // 1. 전체 화면 해제 시도
   try {
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       if (document.exitFullscreen) document.exitFullscreen();
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
   } catch(e) {}
-  
-  // 2. 브라우저 탭/창 닫기 시도 (스크립트로 연 창이 아니면 무시될 수 있음)
   try { window.close(); } catch(e) {}
-  
-  // 혹시 창이 안 닫히면 시작 화면으로 되돌려 놓기
   setTimeout(() => {
     document.getElementById('startOverlay').style.display = 'flex';
   }, 300);
@@ -355,6 +352,7 @@ const CFG = {
   OVERFLOW_THR:40000, OVERFLOW_WRAP:65536,
   MIN_LIFT:6.0, MIN_PEAK_VEL:0.10, MIN_REP_TIME:0.10,
   PEAK_HW:2, DESC_N:3, VEL_MAX:1.5,
+  BOUNCE_COOLDOWN:2.0,
 };
 
 // ════════════════════════════════
@@ -388,8 +386,7 @@ function unlockAudio() {
   console.log('[Audio] Unlocked');
 }
 
-// iOS Safari 버그 방지
-const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || 
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ||
                  (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
 if (isMobile) {
   setInterval(() => {
@@ -423,7 +420,7 @@ function speak(val) {
   const url = 'https://translate.googleapis.com/translate_tts' +
     '?ie=UTF-8' +
     '&q='       + encodeURIComponent(text) +
-    '&tl=en' + 
+    '&tl=en' +
     '&total=1&idx=0' +
     '&textlen=' + text.length +
     '&client=tw-ob' +
@@ -452,6 +449,7 @@ let repCnt=0, lastPeak=null;
 let lenInit=null, lenOld=0;
 const lenBuf=[];
 let repV=[0], repL=[0];
+let cooldownStart=null;
 let inLift=false, savT=0, descN=0, candLen=null, initSw=true, isMaxL=false;
 
 // ════════════════════════════════
@@ -572,7 +570,6 @@ function drawChart() {
   const ptX  = (i) => padL + i * step;
   const ptY  = (v) => padT + cH * (1 - v / maxV);
 
-  // 가이드라인
   ctx.font      = '9px monospace';
   ctx.textAlign = 'left';
   [0.5, 1.0, 1.5].forEach(v => {
@@ -587,7 +584,6 @@ function drawChart() {
     ctx.fillText(v.toFixed(1), padL + 2, y - 3);
   });
 
-  // 채우기
   if (n >= 2) {
     const grd = ctx.createLinearGradient(0, padT, 0, padT + cH);
     grd.addColorStop(0,   'rgba(200,255,0,0.18)');
@@ -602,7 +598,6 @@ function drawChart() {
     ctx.fill();
   }
 
-  // 꺾은선
   if (n >= 2) {
     ctx.strokeStyle = 'rgba(200,255,0,0.7)';
     ctx.lineWidth   = 2;
@@ -615,7 +610,6 @@ function drawChart() {
     ctx.stroke();
   }
 
-  // 점 + 라벨
   repHist.forEach((rep, i) => {
     const x  = ptX(i);
     const y  = ptY(rep.vel);
@@ -695,11 +689,14 @@ function emitPeak(now) {
 function mode1(vel, vs, len, now) {
   if (len > CFG.MIN_LIFT) {
     if (!inLift) {
+      if (cooldownStart !== null && (now - cooldownStart) < CFG.BOUNCE_COOLDOWN) {
+        updStatus(len); return;
+      }
       inLift = true; savT = now; descN = 0; candLen = null; repReset();
     } else {
       repAdd(vel, len);
       if (vs < 0) { descN++; } else { if (candLen !== null) candLen = null; descN = 0; }
-      if (descN >= CFG.DESC_N) { candLen = repMaxL(); descN = 0; }
+      if (descN >= CFG.DESC_N && candLen === null) { candLen = repMaxL(); descN = 0; cooldownStart = now; }
       if (candLen !== null && len <= candLen / 2) {
         if (now - savT >= CFG.MIN_REP_TIME) emitPeak(now);
         inLift = false; descN = 0; candLen = null;
@@ -814,12 +811,14 @@ window.addEventListener('load', async () => {
     }
   } catch(e) {}
 });
+
 async function doDisc() {
   running = false;
   try { if (reader) { await reader.cancel(); reader = null; } } catch{}
   try { if (port)   { await port.close();    port = null;   } } catch{}
   connected = false; setConnUI(false);
 }
+
 async function readLoop() {
   const dec = new TextDecoderStream();
   port.readable.pipeTo(dec.writable);
@@ -984,6 +983,11 @@ function setShow(v) {
   document.getElementById('tPeak').className   = 'tog' + (v===1?' sel':'');
   document.getElementById('tMean').className   = 'tog' + (v===2?' sel':'');
   document.getElementById('peakTag').textContent = v===1 ? 'Peak Velocity' : 'Mean Velocity';
+}
+function setCooldown(btn, v) {
+  CFG.BOUNCE_COOLDOWN = v;
+  document.querySelectorAll('#cdGroup .tog').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
 }
 function setMode(v) {
   liftMode = v;
