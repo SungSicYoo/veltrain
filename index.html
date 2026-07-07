@@ -353,6 +353,7 @@ const CFG = {
   MIN_LIFT:6.0, MIN_PEAK_VEL:0.10, MIN_REP_TIME:0.10,
   PEAK_HW:2, DESC_N:3, VEL_MAX:1.5,
   BOUNCE_COOLDOWN:1.5,
+  CALIB_GAIN:1.16,   // ★ 추가: Gymaware 대비 실측 보정계수 (2026-07 캘리브레이션)
 };
 
 // ════════════════════════════════
@@ -670,7 +671,8 @@ function setCand(len) {
 //  EMIT PEAK
 // ════════════════════════════════
 function emitPeak(now) {
-  const val = showMode === 1 ? repPeak() : repMean();
+  let val = showMode === 1 ? repPeak() : repMean();
+  val *= CFG.CALIB_GAIN;   // ★ 추가: Gymaware 대비 보정계수 적용
   if (val < CFG.MIN_PEAK_VEL) { repReset(); savT = now; return; }
   lastPeak = val;
   showPeak(val);
@@ -721,7 +723,8 @@ function mode2(vel, len, now) {
   if (inLift) {
     repAdd(vel, len);
     if (now - savT > CFG.MIN_REP_TIME && isMaxL) {
-      const p = repPeak();
+      let p = repPeak();
+      p *= CFG.CALIB_GAIN;   // ★ 추가: Gymaware 대비 보정계수 적용 (Lunge 모드)
       if (p >= CFG.MIN_PEAK_VEL) {
         lastPeak = p; showPeak(p); beep(); speak(p); addBar(p);
         repReset(); savT = now;
