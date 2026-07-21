@@ -271,6 +271,74 @@ main{
   color:var(--tx3);text-transform:uppercase;pointer-events:none;
 }
 
+/* ═══════════ CONNECT OVERLAY (거대 타겟 연결 화면) ═══════════ */
+#connOverlay{
+  position:fixed;inset:0;background:var(--bg0);z-index:500;
+  display:none;flex-direction:column;
+}
+#connOverlay.show{display:flex;}
+.conn-head{
+  padding:26px 24px 18px;text-align:center;flex-shrink:0;
+}
+.conn-head h2{
+  font-family:'Bebas Neue',sans-serif;font-size:clamp(30px,6vw,44px);
+  letter-spacing:4px;color:var(--tx1);line-height:1;
+}
+.conn-head p{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;
+  color:var(--tx3);text-transform:uppercase;margin-top:8px;
+}
+.conn-body{
+  flex:1;display:grid;grid-template-columns:1fr 1fr;gap:1px;
+  background:var(--line-soft);overflow:hidden;
+}
+@media(max-width:600px){ .conn-body{grid-template-columns:1fr;grid-template-rows:1fr 1fr;} }
+.bigbtn{
+  background:var(--bg0);border:none;border-radius:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;cursor:pointer;transition:background .2s;
+  padding:24px;min-height:0;min-width:0;
+}
+.bigbtn::after{content:none;}
+.bigbtn:hover{background:var(--bg1);}
+.bigbtn:disabled{opacity:.25;pointer-events:none;}
+.bigbtn .bb-icon{
+  width:74px;height:74px;border-radius:50%;
+  border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;
+  color:var(--acc);background:var(--acc-dim);
+  transition:box-shadow .2s,border-color .2s;
+}
+.bigbtn:hover .bb-icon{border-color:var(--acc);box-shadow:0 0 34px var(--acc-glow);}
+.bigbtn.bb-ble .bb-icon{color:var(--blu);background:rgba(77,163,255,.12);}
+.bigbtn.bb-ble:hover .bb-icon{border-color:var(--blu);box-shadow:0 0 34px rgba(77,163,255,.35);}
+.bigbtn .bb-name{
+  font-family:'Inter',sans-serif;font-size:19px;font-weight:700;
+  letter-spacing:.5px;color:var(--tx1);
+}
+.bigbtn .bb-desc{
+  font-family:'Inter',sans-serif;font-size:12px;color:var(--tx2);
+  text-align:center;line-height:1.6;max-width:260px;
+}
+.bigbtn .bb-key{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;
+  color:var(--tx3);border:1px solid var(--line);border-radius:4px;padding:3px 9px;
+}
+.conn-skip{
+  flex-shrink:0;border:none;border-top:1px solid var(--line);border-radius:0;
+  background:var(--bg2);color:var(--tx3);
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:500;
+  padding:17px;width:100%;min-height:52px;letter-spacing:.3px;
+  cursor:pointer;transition:color .15s;
+}
+.conn-skip::after{content:none;}
+.conn-skip:hover{color:var(--tx1);}
+.conn-hint{
+  flex-shrink:0;text-align:center;padding:10px;min-height:38px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.5px;
+  color:var(--ora);
+}
+
 /* ═══════════ TOAST (미지원 안내) ═══════════ */
 #noser{
   display:none;position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);
@@ -442,6 +510,29 @@ main{
   <div id="chartEmpty">Rep history will appear here</div>
 </div>
 
+<div id="connOverlay">
+  <div class="conn-head">
+    <h2>Connect Sensor</h2>
+    <p>센서 연결 방식을 선택하세요</p>
+  </div>
+  <div class="conn-body">
+    <button class="bigbtn" id="bigUsb" onclick="doConn()">
+      <div class="bb-icon">USB</div>
+      <div class="bb-name">USB 케이블</div>
+      <div class="bb-desc">센서를 USB로 PC에 연결한 경우<br>Chrome / Edge에서 사용 가능</div>
+      <div class="bb-key">단축키 U</div>
+    </button>
+    <button class="bigbtn bb-ble" id="bigBle" onclick="bleConnect()">
+      <div class="bb-icon">BLE</div>
+      <div class="bb-name">블루투스 (무선)</div>
+      <div class="bb-desc">센서 전원만 켜면 무선으로 연결<br>Android / PC Chrome에서 사용 가능</div>
+      <div class="bb-key">단축키 B</div>
+    </button>
+  </div>
+  <div class="conn-hint" id="connHint"></div>
+  <button class="conn-skip" onclick="closeConnect()">연결 없이 둘러보기 &nbsp;·&nbsp; Esc</button>
+</div>
+
 <div id="noser">
   <h2>Not supported</h2>
   <p id="noserMsg"></p>
@@ -462,6 +553,7 @@ function startApp() {
     }
   } catch(e) {}
   document.getElementById('startOverlay').style.display = 'none';
+  if (!connected && !bleConnected) openConnect();   // ★ 시작 직후 연결 온보딩
 }
 
 function exitApp() {
@@ -1137,6 +1229,7 @@ async function bleConnect() {
   } catch(e) {
     console.error('BLE connect:', e);
     setBleUI(false, true);
+    connHint('BLE 연결에 실패했습니다. 센서 전원과 거리를 확인하세요.');
     try { if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect(); } catch{}
   }
 }
@@ -1184,6 +1277,7 @@ function setBleUI(state, err=false) {
     dot.className   = 'dot ble';
     setConnChip('ble');
     document.getElementById('sStat').textContent = 'Waiting';
+    closeConnect();   // ★ 연결 성공 → 온보딩 닫기
   } else {
     btn.textContent = 'BLE';
     btn.className   = '';
@@ -1195,6 +1289,28 @@ function setBleUI(state, err=false) {
   }
   updStatus(null);
 }
+
+// ════════════════════════════════
+//  ★ CONNECT OVERLAY (거대 타겟 연결 화면)
+// ════════════════════════════════
+function openConnect(){
+  document.getElementById('connHint').textContent = '';
+  document.getElementById('connOverlay').classList.add('show');
+}
+function closeConnect(){
+  document.getElementById('connOverlay').classList.remove('show');
+}
+function connHint(msg){
+  document.getElementById('connHint').textContent = msg;
+}
+// 연결이 안 된 상태에서 메인 Peak 패널(대형 영역)을 클릭하면 연결 화면 다시 열기
+document.querySelector('.panel.peak-p').addEventListener('click', () => {
+  if (!connected && !bleConnected) openConnect();
+});
+// Esc로 연결 화면 닫기
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeConnect();
+});
 
 // ════════════════════════════════
 //  UI
@@ -1215,6 +1331,8 @@ function setConnUI(on, err=false) {
     setConnChip(on ? 'usb' : err ? 'err' : null);
     document.getElementById('sStat').textContent = on ? 'Waiting' : 'Idle';
   }
+  if (on) closeConnect();   // ★ 연결 성공 → 온보딩 닫기
+  else if (err) connHint('USB 연결에 실패했습니다. 케이블과 포트 점유 여부를 확인하세요.');
   updStatus(null);
 }
 function setShow(v) {
@@ -1242,10 +1360,16 @@ function setMode(v) {
 if (!('serial' in navigator)) {
   const b = document.getElementById('conBtn');
   b.disabled = true; b.title = 'PC Chrome/Edge 전용';
+  const bb = document.getElementById('bigUsb');
+  bb.disabled = true;
+  bb.querySelector('.bb-desc').textContent = '이 기기에서는 사용할 수 없습니다';
 }
 if (!('bluetooth' in navigator)) {
   const b = document.getElementById('bleBtn');
   b.disabled = true; b.title = 'Chrome (Android/PC) 전용';
+  const bb = document.getElementById('bigBle');
+  bb.disabled = true;
+  bb.querySelector('.bb-desc').textContent = '이 기기에서는 사용할 수 없습니다';
 }
 
 // ★ 키보드 단축키 (마우스 클릭이 어긋나는 환경 대비)
