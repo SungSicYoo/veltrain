@@ -89,6 +89,12 @@ button{
   background:transparent;color:var(--tx1);cursor:pointer;
   transition:border-color .15s,color .15s,background .15s;flex-shrink:0;
   line-height:1.2;
+  min-height:40px;min-width:56px;   /* ★ 클릭 타겟 확대 (DPI 좌표 오차 대응) */
+  position:relative;
+}
+/* ★ 시각 크기는 유지하면서 실제 클릭 판정 영역을 사방 6px 확장 */
+button::after{
+  content:'';position:absolute;inset:-6px;border-radius:inherit;
 }
 @media(min-width:768px){ button{font-size:12px;padding:8px 15px;} }
 button:hover{border-color:var(--acc);color:var(--acc);}
@@ -120,7 +126,9 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
   letter-spacing:.4px;padding:7px 12px;
   cursor:pointer;color:var(--tx2);border:none;background:transparent;
   transition:color .15s,background .15s;border-radius:0;
+  min-height:40px;   /* ★ 클릭 타겟 확대 */
 }
+.tog::after{content:none;}   /* 토글은 그룹 내 인접이라 확장 판정 제외 */
 @media(min-width:768px){ .tog{font-size:12px;padding:8px 14px;} }
 .tog+.tog{border-left:1px solid var(--line-soft);}
 .tog:hover{color:var(--tx1);}
@@ -1239,6 +1247,18 @@ if (!('bluetooth' in navigator)) {
   const b = document.getElementById('bleBtn');
   b.disabled = true; b.title = 'Chrome (Android/PC) 전용';
 }
+
+// ★ 키보드 단축키 (마우스 클릭이 어긋나는 환경 대비)
+//   U: USB 연결/해제, B: BLE 연결/해제
+document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  if (k === 'u' && !document.getElementById('conBtn').disabled) toggleConn();
+  else if (k === 'b' && !document.getElementById('bleBtn').disabled) toggleBle();
+});
+document.getElementById('conBtn').title = (document.getElementById('conBtn').title ? document.getElementById('conBtn').title + ' · ' : '') + '단축키 U';
+document.getElementById('bleBtn').title = (document.getElementById('bleBtn').title ? document.getElementById('bleBtn').title + ' · ' : '') + '단축키 B';
 </script>
 </body>
 </html>
