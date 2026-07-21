@@ -147,6 +147,53 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
 
 .ctrl-row{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;}
 
+/* ★ 설정 시트/기어: 데스크톱은 기존처럼 헤더 안에 인라인 배치 */
+.gearbtn{display:none;}
+#setWrap{display:contents;}
+.sheet-head{display:none;}
+
+/* ★ 모바일 헤더: 컴팩트 2행 + 설정은 바텀시트로 */
+@media(max-width:767px){
+  header{
+    display:grid;grid-template-columns:1fr auto;align-items:center;
+    gap:8px 10px;padding:8px 14px;
+    padding-top:calc(8px + env(safe-area-inset-top));
+  }
+  .brand-blk{grid-column:1;grid-row:1;}
+  .brand{font-size:22px;letter-spacing:2px;}
+  .brand-sub{display:none;}
+  .vsep.hd{display:none;}
+  .gearbtn{
+    display:flex;align-items:center;justify-content:center;
+    grid-column:2;grid-row:1;
+    width:44px;height:44px;min-width:44px;min-height:44px;
+    font-size:19px;padding:0;color:var(--tx2);
+  }
+  .conn-grp{grid-column:1 / -1;grid-row:2;}
+  .conn-grp .grp-label{display:none;}
+  .conn-grp .grp-row{display:flex;gap:6px;}
+  .chip{flex:1;min-width:0;}
+  .chip-txt{overflow:hidden;text-overflow:ellipsis;}
+
+  #setWrap{
+    display:none;position:fixed;left:0;right:0;bottom:0;z-index:400;
+    background:var(--bg2);border-top:1px solid var(--line);
+    padding:16px 18px calc(16px + env(safe-area-inset-bottom));
+    flex-direction:column;gap:16px;
+    box-shadow:0 -24px 60px rgba(0,0,0,.55);
+    border-radius:14px 14px 0 0;
+  }
+  #setWrap.open{display:flex;}
+  .sheet-head{
+    display:flex;align-items:center;justify-content:space-between;
+    font-family:'Inter',sans-serif;font-size:13px;font-weight:700;
+    letter-spacing:.5px;color:var(--tx1);text-transform:uppercase;
+  }
+  #setWrap .tgroup{width:100%;}
+  #setWrap .tog{flex:1;}
+  #setWrap .ctrl-row{margin-left:0;justify-content:flex-end;gap:8px;}
+}
+
 /* ═══════════ MAIN ═══════════ */
 main{
   display:grid;gap:1px;background:var(--line-soft);overflow:hidden;
@@ -154,6 +201,10 @@ main{
 }
 @media(max-width:767px){
   main{grid-template-columns:1fr;grid-template-rows:1fr auto;}
+  .panel.peak-p .vel-num{font-size:min(29vw,22vh);}   /* ★ 높이 기준도 함께 제한해 잘림 방지 */
+  .panel{padding:10px;}
+  .vel-tag{margin-bottom:2px;}
+  .zone{margin-top:8px;}
 }
 
 .panel{
@@ -414,9 +465,9 @@ main{
     <div class="brand-sub">Velocity Based Training</div>
   </div>
 
-  <div class="vsep"></div>
+  <div class="vsep hd"></div>
 
-  <div class="grp">
+  <div class="grp conn-grp">
     <div class="grp-label">Connection</div>
     <div class="grp-row">
       <div class="chip">
@@ -428,44 +479,53 @@ main{
     </div>
   </div>
 
-  <div class="vsep"></div>
+  <button class="gearbtn" id="menuBtn" onclick="toggleSheet()" aria-label="설정">⚙</button>
 
-  <div class="grp">
-    <div class="grp-label">Metric</div>
-    <div class="grp-row">
-      <div class="tgroup">
-        <button class="tog sel" id="tPeak" onclick="setShow(1)">Peak</button>
-        <button class="tog"     id="tMean" onclick="setShow(2)">Mean</button>
+  <div class="vsep hd"></div>
+
+  <div id="setWrap">
+    <div class="sheet-head">
+      <span>Settings</span>
+      <button class="ghost" onclick="toggleSheet()">✕</button>
+    </div>
+
+    <div class="grp">
+      <div class="grp-label">Metric</div>
+      <div class="grp-row">
+        <div class="tgroup">
+          <button class="tog sel" id="tPeak" onclick="setShow(1)">Peak</button>
+          <button class="tog"     id="tMean" onclick="setShow(2)">Mean</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="grp">
-    <div class="grp-label">Exercise</div>
-    <div class="grp-row">
-      <div class="tgroup">
-        <button class="tog sel" id="tDef"  onclick="setMode(1)">Default</button>
-        <button class="tog"     id="tLung" onclick="setMode(2)">Lunge</button>
+    <div class="grp">
+      <div class="grp-label">Exercise</div>
+      <div class="grp-row">
+        <div class="tgroup">
+          <button class="tog sel" id="tDef"  onclick="setMode(1)">Default</button>
+          <button class="tog"     id="tLung" onclick="setMode(2)">Lunge</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="grp">
-    <div class="grp-label">Rep cooldown</div>
-    <div class="grp-row">
-      <div class="tgroup" id="cdGroup">
-        <button class="tog"     onclick="setCooldown(this,0.5)">0.5s</button>
-        <button class="tog"     onclick="setCooldown(this,1)">1s</button>
-        <button class="tog sel" onclick="setCooldown(this,1.5)">1.5s</button>
-        <button class="tog"     onclick="setCooldown(this,2)">2s</button>
-        <button class="tog"     onclick="setCooldown(this,3)">3s</button>
+    <div class="grp">
+      <div class="grp-label">Rep cooldown</div>
+      <div class="grp-row">
+        <div class="tgroup" id="cdGroup">
+          <button class="tog"     onclick="setCooldown(this,0.5)">0.5s</button>
+          <button class="tog"     onclick="setCooldown(this,1)">1s</button>
+          <button class="tog sel" onclick="setCooldown(this,1.5)">1.5s</button>
+          <button class="tog"     onclick="setCooldown(this,2)">2s</button>
+          <button class="tog"     onclick="setCooldown(this,3)">3s</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="ctrl-row">
-    <button class="ghost" onclick="location.reload()">Reset</button>
-    <button class="danger" onclick="exitApp()">Exit</button>
+    <div class="ctrl-row">
+      <button class="ghost" onclick="location.reload()">Reset</button>
+      <button class="danger" onclick="exitApp()">Exit</button>
+    </div>
   </div>
 </header>
 
@@ -1317,9 +1377,16 @@ function connHint(msg){
 document.querySelector('.panel.peak-p').addEventListener('click', () => {
   if (!connected && !bleConnected) openConnect();
 });
-// Esc로 연결 화면 닫기
+// ★ 모바일 설정 시트
+function toggleSheet(){
+  document.getElementById('setWrap').classList.toggle('open');
+}
+// Esc로 연결 화면/설정 시트 닫기
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeConnect();
+  if (e.key === 'Escape') {
+    closeConnect();
+    document.getElementById('setWrap').classList.remove('open');
+  }
 });
 
 // ════════════════════════════════
