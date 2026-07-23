@@ -1294,6 +1294,7 @@ async function bleConnect() {
 
     bleConnected = true;
     lenInit = null; lenOld = 0; lenBuf.length = 0; bleBuf = '';
+    bleRx = 0; bleUnknown = 0;   // ★ 진단 카운터 초기화
     inLift = false; descN = 0; candLen = null; repReset();
     setBleUI(true);
   } catch(e) {
@@ -1304,18 +1305,49 @@ async function bleConnect() {
   }
 }
 
+let bleRx = 0;           // ★ 수신 알림 카운터 (진단용)
+let bleUnknown = 0;      // ★ 미인식 형식 라인 수
+
 function onBleData(ev) {
   try {
+    bleRx++;
+    // ★ 진단: 수신 횟수를 상태 칩에 표시 → 알림이 오는지 화면에서 바로 확인 가능
+    if (bleRx % 10 === 1) {
+      document.getElementById('connTxt').innerHTML = '<b>BLE</b> · RX ' + bleRx;
+    }
+
     const chunk = new TextDecoder().decode(ev.target.value);
-    bleBuf += chunk;
+    bleBuf += chunk.replace(/\r/g, '\n');   // ★ CR/CRLF 모두 대응
+
     const ls = bleBuf.split('\n'); bleBuf = ls.pop();
     for (const l of ls) {
       const t = l.trim();
-      if (t) {
-        try { processBleLine(t); } catch(e) { console.error('processBleLine:', e); }
-      }
+      if (t) handleBleLine(t);
     }
+
+    // ★ 줄바꿈 없이 알림당 1메시지를 보내는 펌웨어 대응:
+    //    남은 버퍼가 자체로 완전한 "V:x,y" 형태면 즉시 처리
+    const rest = bleBuf.trim();
+    if (rest && /^V:-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(rest)) {
+      handleBleLine(rest);
+      bleBuf = '';
+    }
+    if (bleBuf.length > 200) bleBuf = '';   // 쓰레기 누적 방지
   } catch(e) { console.error('onBleData:', e); }
+}
+
+function handleBleLine(t) {
+  if (t.startsWith('V:')) {
+    try { processBleLine(t); } catch(e) { console.error('processBleLine:', e); }
+  } else {
+    // ★ 진단: 예상 형식이 아닌 데이터가 오면 원본을 화면에 보여줌 (최초 3회)
+    bleUnknown++;
+    console.warn('[BLE] 미인식 형식:', JSON.stringify(t));
+    if (bleUnknown <= 3) {
+      showNoser('센서 데이터 형식이 예상과 다릅니다.<br>수신된 원본: <strong>' +
+        t.slice(0, 40).replace(/</g,'&lt;') + '</strong><br>펌웨어 출력 형식 확인이 필요합니다.');
+    }
+  }
 }
 
 function onBleDisconnected() {
