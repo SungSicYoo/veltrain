@@ -762,6 +762,7 @@ const lenBuf=[];
 let repV=[0], repL=[0];
 let cooldownStart=null;
 let inLift=false, savT=0, descN=0, candLen=null, initSw=true, isMaxL=false;
+let peakEmitted=false;   // ★ 이번 리프트에서 이미 최고점 출력했는지
 
 // ★ BLE 상태
 let bleDevice=null, bleChar=null, bleConnected=false;
