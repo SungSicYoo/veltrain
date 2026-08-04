@@ -648,6 +648,8 @@ const CFG = {
   MIN_LIFT:6.0, MIN_PEAK_VEL:0.10, MIN_REP_TIME:0.10,
   PEAK_HW:2, DESC_N:2, VEL_MAX:1.5,
   DESC_FAST:0.15,    // ★ 이 속도(m/s) 이상으로 하강하면 1샘플만에 최고점 판정
+  ASC_FAST:0.15,     // ★ 이 속도(m/s) 이상으로 상승하면 1샘플만에 새 rep 시작
+  ASC_N:2,           // ★ 느린 상승은 연속 2샘플 확인 후 rep 시작
   BOUNCE_COOLDOWN:1.5,
   CALIB_GAIN:1.16,   // ★ Gymaware 대비 실측 보정계수 (2026-07 캘리브레이션)
 };
@@ -764,6 +766,8 @@ let repV=[0], repL=[0];
 let cooldownStart=null;
 let inLift=false, savT=0, descN=0, candLen=null, initSw=true, isMaxL=false;
 let peakEmitted=false;   // ★ 이번 리프트에서 이미 최고점 출력했는지
+let ascN=0;              // ★ 연속 상승 샘플 카운터
+let repStartLen=0;       // ★ 이번 rep이 시작된 높이 (어느 지점이든 가능)
 
 // ★ BLE 상태
 let bleDevice=null, bleChar=null, bleConnected=false;
@@ -1059,42 +1063,47 @@ function emitPeak(now) {
 }
 
 // ════════════════════════════════
-//  MODE 1 — 최고점 감지 즉시 출력
-//  연속 하강 DESC_N샘플(0.15s) 확인 = 최고점 통과
-//  → 그 순간 바로 속도 출력 (바닥 복귀 대기 없음)
-//  중복 방지: peakEmitted 플래그로 리프트당 1회만 출력
+//  MODE 1 — 방향 기반 rep 감지
+//  · 바닥 복귀 불필요: 어느 높이에서든 상승 시작 = 새 rep
+//  · 상승 시작: 확실한 상승 1샘플(≥ASC_FAST) 또는 느린 상승 2샘플
+//  · 최고점 도달: 확실한 하강 1샘플(≤-DESC_FAST) 또는 느린 하강 2샘플
+//    → 즉시 속도 출력
+//  · 오인식 방어: rep 상승량이 MIN_LIFT(6cm) 미만이면 무시
 // ════════════════════════════════
 function mode1(vel, vs, len, now) {
-  if (len > CFG.MIN_LIFT) {
-    if (!inLift) {
-      if (cooldownStart !== null && (now - cooldownStart) < CFG.BOUNCE_COOLDOWN) {
-        updStatus(len); return;
-      }
-      inLift = true; savT = now; descN = 0; candLen = null;
-      peakEmitted = false; repReset();
-    } else {
-      repAdd(vel, len);
-      if (vs < 0) { descN++; } else { descN = 0; }
+  if (!inLift) {
+    // ── 상승 시작 감지 (현재 높이와 무관) ──
+    if (vs > 0) { ascN++; } else { ascN = 0; }
+    const fastRise   = vs >= CFG.ASC_FAST;
+    const cooldownOk = cooldownStart === null ||
+                       (now - cooldownStart) >= CFG.BOUNCE_COOLDOWN;
 
-      // ★ [최고점 감지] 둘 중 하나 충족 시 즉시 출력
-      //   A) 빠른 판정: 확실한 하강 1샘플 (vs ≤ -DESC_FAST)
-      //      → 최고점 통과 후 50ms 안에 출력
-      //   B) 일반 판정: 느린 하강 연속 DESC_N샘플 (0.1s)
-      //      → 천천히 반전되는 리프트 대응
-      const fastDrop = vs <= -CFG.DESC_FAST;
-      if (!peakEmitted && (fastDrop || descN >= CFG.DESC_N)) {
-        if (now - savT >= CFG.MIN_REP_TIME) emitPeak(now);
-        peakEmitted   = true;
-        cooldownStart = now;   // 내려놓을 때 바운스 재감지 방지
-        descN = 0;
-      }
+    if (cooldownOk && (fastRise || ascN >= CFG.ASC_N)) {
+      inLift = true; savT = now;
+      repStartLen = len;          // ★ 시작 높이 기록 (0일 필요 없음)
+      descN = 0; ascN = 0;
+      peakEmitted = false;
+      repReset();
+      repAdd(vel, len);
     }
   } else {
-    if (inLift) {
-      // 최고점에서 출력 못한 리프트만 바닥 복귀 시 출력 (안전망)
-      if (!peakEmitted && now - savT >= CFG.MIN_REP_TIME) emitPeak(now);
-      inLift = false; descN = 0; candLen = null;
-      peakEmitted = false; initSw = true;
+    // ── 상승 중: 데이터 누적 + 최고점 감지 ──
+    repAdd(vel, len);
+    if (vs < 0) { descN++; } else { descN = 0; }
+
+    const fastDrop = vs <= -CFG.DESC_FAST;
+    if (fastDrop || descN >= CFG.DESC_N) {
+      // 최고점 도달 → 상승량 검증 후 출력
+      const rise = repMaxL() - repStartLen;
+      if (!peakEmitted && rise >= CFG.MIN_LIFT &&
+          now - savT >= CFG.MIN_REP_TIME) {
+        emitPeak(now);
+      } else {
+        repReset();   // 상승량 미달 → 노이즈/미세움직임으로 폐기
+      }
+      inLift = false; descN = 0; ascN = 0;
+      peakEmitted = false;
+      cooldownStart = now;   // 하강/바운스 중 재감지 방지
     }
   }
   setCand(null); updStatus(len);
