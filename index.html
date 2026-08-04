@@ -646,7 +646,8 @@ const CFG = {
   BAUDRATE:115200, FACTOR:30/7860,
   OVERFLOW_THR:40000, OVERFLOW_WRAP:65536,
   MIN_LIFT:6.0, MIN_PEAK_VEL:0.10, MIN_REP_TIME:0.10,
-  PEAK_HW:2, DESC_N:3, VEL_MAX:1.5,
+  PEAK_HW:2, DESC_N:2, VEL_MAX:1.5,
+  DESC_FAST:0.15,    // ★ 이 속도(m/s) 이상으로 하강하면 1샘플만에 최고점 판정
   BOUNCE_COOLDOWN:1.5,
   CALIB_GAIN:1.16,   // ★ Gymaware 대비 실측 보정계수 (2026-07 캘리브레이션)
 };
@@ -1058,7 +1059,10 @@ function emitPeak(now) {
 }
 
 // ════════════════════════════════
-//  MODE 1
+//  MODE 1 — 최고점 감지 즉시 출력
+//  연속 하강 DESC_N샘플(0.15s) 확인 = 최고점 통과
+//  → 그 순간 바로 속도 출력 (바닥 복귀 대기 없음)
+//  중복 방지: peakEmitted 플래그로 리프트당 1회만 출력
 // ════════════════════════════════
 function mode1(vel, vs, len, now) {
   if (len > CFG.MIN_LIFT) {
@@ -1066,23 +1070,34 @@ function mode1(vel, vs, len, now) {
       if (cooldownStart !== null && (now - cooldownStart) < CFG.BOUNCE_COOLDOWN) {
         updStatus(len); return;
       }
-      inLift = true; savT = now; descN = 0; candLen = null; repReset();
+      inLift = true; savT = now; descN = 0; candLen = null;
+      peakEmitted = false; repReset();
     } else {
       repAdd(vel, len);
-      if (vs < 0) { descN++; } else { if (candLen !== null) candLen = null; descN = 0; }
-      if (descN >= CFG.DESC_N && candLen === null) { candLen = repMaxL(); descN = 0; cooldownStart = now; }
-      if (candLen !== null && len <= candLen / 2) {
+      if (vs < 0) { descN++; } else { descN = 0; }
+
+      // ★ [최고점 감지] 둘 중 하나 충족 시 즉시 출력
+      //   A) 빠른 판정: 확실한 하강 1샘플 (vs ≤ -DESC_FAST)
+      //      → 최고점 통과 후 50ms 안에 출력
+      //   B) 일반 판정: 느린 하강 연속 DESC_N샘플 (0.1s)
+      //      → 천천히 반전되는 리프트 대응
+      const fastDrop = vs <= -CFG.DESC_FAST;
+      if (!peakEmitted && (fastDrop || descN >= CFG.DESC_N)) {
         if (now - savT >= CFG.MIN_REP_TIME) emitPeak(now);
-        inLift = false; descN = 0; candLen = null;
+        peakEmitted   = true;
+        cooldownStart = now;   // 내려놓을 때 바운스 재감지 방지
+        descN = 0;
       }
     }
   } else {
     if (inLift) {
-      if (now - savT >= CFG.MIN_REP_TIME) emitPeak(now);
-      inLift = false; descN = 0; candLen = null; initSw = true;
+      // 최고점에서 출력 못한 리프트만 바닥 복귀 시 출력 (안전망)
+      if (!peakEmitted && now - savT >= CFG.MIN_REP_TIME) emitPeak(now);
+      inLift = false; descN = 0; candLen = null;
+      peakEmitted = false; initSw = true;
     }
   }
-  setCand(candLen); updStatus(len);
+  setCand(null); updStatus(len);
 }
 
 // ════════════════════════════════
