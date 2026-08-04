@@ -650,6 +650,7 @@ const CFG = {
   DESC_FAST:0.15,    // ★ 이 속도(m/s) 이상으로 하강하면 1샘플만에 최고점 판정
   ASC_FAST:0.15,     // ★ 이 속도(m/s) 이상으로 상승하면 1샘플만에 새 rep 시작
   ASC_N:2,           // ★ 느린 상승은 연속 2샘플 확인 후 rep 시작
+  ASC_OVERRIDE:3,    // ★ 연속 상승 3샘플(0.15s)이면 쿨다운 무시하고 rep 시작
   BOUNCE_COOLDOWN:1.5,
   CALIB_GAIN:1.16,   // ★ Gymaware 대비 실측 보정계수 (2026-07 캘리브레이션)
 };
@@ -1078,7 +1079,15 @@ function mode1(vel, vs, len, now) {
     const cooldownOk = cooldownStart === null ||
                        (now - cooldownStart) >= CFG.BOUNCE_COOLDOWN;
 
-    if (cooldownOk && (fastRise || ascN >= CFG.ASC_N)) {
+    // ★ 쿨다운 중이라도 연속 상승 ASC_OVERRIDE샘플(0.15s)이면
+    //   진짜 리프트로 판단하고 rep 시작
+    //   → 멈춤 출력 직후 이어서 올리는 동작이 잘리지 않음
+    //   (바닥에 내려놓을 때 바운스는 연속 상승이 짧아 통과 못함
+    //    + 통과해도 상승량 6cm 미달로 출력 안 됨)
+    const startOk = (fastRise || ascN >= CFG.ASC_N) &&
+                    (cooldownOk || ascN >= CFG.ASC_OVERRIDE);
+
+    if (startOk) {
       inLift = true; savT = now;
       repStartLen = len;          // ★ 시작 높이 기록 (0일 필요 없음)
       descN = 0; ascN = 0;
