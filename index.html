@@ -456,7 +456,7 @@ main{
   <h1>VelTrain</h1>
   <div class="tagline">Velocity Based Training</div>
   <button class="btn-start" onclick="startApp()">Start Session</button>
-  <div class="ver">v2.1 · USB / BLE</div>
+  <div class="ver">v2.2 · USB / BLE</div>
 </div>
 
 <header>
@@ -1257,56 +1257,109 @@ async function readLoop() {
 
 // ════════════════════════════════
 //  ★ WEB BLUETOOTH (BLE) — ESP32 펌웨어 v7
+//
+//  [재연결 문제 수정 사항]
+//  1. filters: name → namePrefix
+//     펌웨어가 "VelTrain-XXXX"처럼 접미사를 붙여도 검색됨
+//  2. bleDisconnect()에서 이벤트 리스너 제거 + bleDevice=null
+//     이전 기기 참조가 남아 재검색을 방해하던 문제 해결
+//  3. bleConnect() 시작 시 이전 세션 잔재 완전 정리
+//  4. GATT 연결 실패 시 지수 백오프 재시도 (ESP32가
+//     이전 연결을 정리하는 데 1~2초 걸리는 경우 대응)
 // ════════════════════════════════
 async function toggleBle() { if (bleConnected) await bleDisconnect(); else await bleConnect(); }
 
 let bleBuf = '';
+let bleRx = 0;           // ★ 수신 알림 카운터 (진단용)
+let bleUnknown = 0;      // ★ 미인식 형식 라인 수
+
+// ★ 이전 BLE 세션의 잔재를 완전히 정리 (재연결 문제의 핵심 수정)
+function cleanupBle() {
+  try {
+    if (bleChar) {
+      try { bleChar.removeEventListener('characteristicvaluechanged', onBleData); } catch(e) {}
+      bleChar = null;
+    }
+    if (bleDevice) {
+      try { bleDevice.removeEventListener('gattserverdisconnected', onBleDisconnected); } catch(e) {}
+      try { if (bleDevice.gatt && bleDevice.gatt.connected) bleDevice.gatt.disconnect(); } catch(e) {}
+      bleDevice = null;   // ★ 기기 참조 완전 해제 → 다음 requestDevice가 새로 검색
+    }
+  } catch(e) { console.warn('cleanupBle:', e); }
+  bleConnected = false;
+  bleBuf = '';
+}
+
 async function bleConnect() {
   if (!('bluetooth' in navigator)) {
     showNoser('이 브라우저는 BLE(Web Bluetooth)를 지원하지 않습니다.<br>Android/PC의 <strong>Chrome</strong>을 사용해주세요. (iOS Safari 미지원)');
     return;
   }
   if (connected) await doDisc();
+
+  // ★ 이전 세션 잔재 정리 — 이게 없으면 두 번째 연결부터 실패하는 경우가 있음
+  cleanupBle();
+
   if (!actx) {
     actx = new (window.AudioContext || window.webkitAudioContext)();
     audioUnlocked = true;
   }
   if (actx.state === 'suspended') actx.resume();
 
+  // ── 1단계: 기기 검색 ──
   try {
     bleDevice = await withChooserVisible(() => navigator.bluetooth.requestDevice({
-      filters: [{ name: BLE_NAME }],
+      // ★ name(정확 일치) → namePrefix(접두사 일치)로 변경
+      //   "VelTrain", "VelTrain-A1B2" 등 모두 매칭됨
+      filters: [{ namePrefix: BLE_NAME }],
       optionalServices: [BLE_SERVICE],
     }));
   } catch(e) {
-    if (e.name !== 'NotFoundError') console.error('BLE requestDevice:', e);
+    if (e.name === 'NotFoundError') {
+      // 사용자가 취소했거나 기기가 목록에 없음
+      connHint('센서가 목록에 없다면: ① 센서 전원 확인 ② 다른 기기에서 연결 중인지 확인 (BLE는 동시에 1대만 연결 가능)');
+    } else {
+      console.error('BLE requestDevice:', e);
+    }
     return;
   }
 
-  try {
-    setBleUI('connecting');
-    bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
-    const server  = await bleDevice.gatt.connect();
-    const service = await server.getPrimaryService(BLE_SERVICE);
-    bleChar       = await service.getCharacteristic(BLE_TX_CHAR);
-    await bleChar.startNotifications();
-    bleChar.addEventListener('characteristicvaluechanged', onBleData);
+  // ── 2단계: GATT 연결 (최대 3회 재시도) ──
+  //   ESP32가 직전 연결을 정리 중이면 첫 connect()가 실패할 수 있어
+  //   짧은 백오프 후 재시도하면 대부분 성공함
+  setBleUI('connecting');
+  bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
 
-    bleConnected = true;
-    lenInit = null; lenOld = 0; lenBuf.length = 0; bleBuf = '';
-    bleRx = 0; bleUnknown = 0;   // ★ 진단 카운터 초기화
-    inLift = false; descN = 0; candLen = null; repReset();
-    setBleUI(true);
-  } catch(e) {
-    console.error('BLE connect:', e);
-    setBleUI(false, true);
-    connHint('BLE 연결에 실패했습니다. 센서 전원과 거리를 확인하세요.');
-    try { if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect(); } catch{}
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const server  = await bleDevice.gatt.connect();
+      const service = await server.getPrimaryService(BLE_SERVICE);
+      bleChar       = await service.getCharacteristic(BLE_TX_CHAR);
+      await bleChar.startNotifications();
+      bleChar.addEventListener('characteristicvaluechanged', onBleData);
+
+      bleConnected = true;
+      lenInit = null; lenOld = 0; lenBuf.length = 0; bleBuf = '';
+      bleRx = 0; bleUnknown = 0;
+      inLift = false; descN = 0; candLen = null; repReset();
+      setBleUI(true);
+      console.log('[BLE] connected (attempt ' + attempt + ')');
+      return;   // 성공
+    } catch(e) {
+      lastErr = e;
+      console.warn('[BLE] connect attempt ' + attempt + ' failed:', e);
+      // 다음 시도 전 잠깐 대기 (0.5s → 1s)
+      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 500));
+    }
   }
-}
 
-let bleRx = 0;           // ★ 수신 알림 카운터 (진단용)
-let bleUnknown = 0;      // ★ 미인식 형식 라인 수
+  // 3회 모두 실패
+  console.error('BLE connect:', lastErr);
+  setBleUI(false, true);
+  connHint('BLE 연결에 실패했습니다. 센서 전원을 껐다 켠 후 다시 시도하세요.');
+  cleanupBle();
+}
 
 function onBleData(ev) {
   try {
@@ -1351,17 +1404,20 @@ function handleBleLine(t) {
 }
 
 function onBleDisconnected() {
-  bleConnected = false; bleChar = null;
-  setBleUI(false);
+  // ★ 연결이 끊어지면 잔재를 완전히 정리해 다음 연결이 깨끗하게 시작되도록 함
   console.log('[BLE] disconnected');
+  cleanupBle();
+  setBleUI(false);
 }
 
 async function bleDisconnect() {
   try {
-    if (bleChar) { try { await bleChar.stopNotifications(); } catch{} bleChar = null; }
-    if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
+    // stopNotifications는 연결이 살아있을 때만 의미 있음
+    if (bleChar && bleDevice && bleDevice.gatt && bleDevice.gatt.connected) {
+      try { await bleChar.stopNotifications(); } catch(e) {}
+    }
   } catch(e) { console.warn('bleDisconnect:', e); }
-  bleConnected = false;
+  cleanupBle();   // ★ 리스너 제거 + gatt.disconnect + 참조 해제까지 한번에
   setBleUI(false);
 }
 
