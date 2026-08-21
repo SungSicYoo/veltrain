@@ -19,30 +19,25 @@
 
 /* ═══════════ DESIGN TOKENS ═══════════ */
 :root{
-  /* surfaces — 3단 레이어 */
-  --bg0:#08080a;          /* 최하단 */
-  --bg1:#0e0e11;          /* 패널 */
-  --bg2:#15151a;          /* 헤더/푸터 */
-  --line:#232329;         /* 구분선 */
+  --bg0:#08080a;
+  --bg1:#0e0e11;
+  --bg2:#15151a;
+  --line:#232329;
   --line-soft:#1a1a1f;
 
-  /* text — 3단 위계 */
   --tx1:#f4f4f6;
   --tx2:#9a9aa3;
   --tx3:#55555e;
 
-  /* brand */
   --acc:#c8ff00;
   --acc-dim:rgba(200,255,0,.14);
   --acc-glow:rgba(200,255,0,.28);
 
-  /* status */
   --red:#ff4d4d; --ora:#ff9500; --blu:#4da3ff;
 
-  /* VBT zones */
   --z-str:#4d7dff; --z-ss:#00d084; --z-pow:#ffd400; --z-sp:#ff8a00; --z-spd:#ff3b3b;
 
-  --r:6px;                /* 공통 radius */
+  --r:6px;
   --ch:130px;
 }
 @media(min-width:768px){ :root{ --ch:170px; } }
@@ -81,7 +76,6 @@ header{
   color:var(--tx3);text-transform:uppercase;margin-top:2px;
 }
 
-/* 그룹: 라벨 + 컨트롤 */
 .grp{display:flex;flex-direction:column;gap:4px;justify-content:center;flex-shrink:0;}
 .grp-label{
   font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:500;
@@ -99,10 +93,9 @@ button{
   background:transparent;color:var(--tx1);cursor:pointer;
   transition:border-color .15s,color .15s,background .15s;flex-shrink:0;
   line-height:1.2;
-  min-height:40px;min-width:56px;   /* ★ 클릭 타겟 확대 (DPI 좌표 오차 대응) */
+  min-height:40px;min-width:56px;
   position:relative;
 }
-/* ★ 시각 크기는 유지하면서 실제 클릭 판정 영역을 사방 6px 확장 */
 button::after{
   content:'';position:absolute;inset:-6px;border-radius:inherit;
 }
@@ -116,7 +109,6 @@ button.ghost:hover{color:var(--tx1);border-color:var(--line);}
 button.danger{color:var(--tx2);}
 button.danger:hover{border-color:var(--red);color:var(--red);}
 
-/* 상태 칩 */
 .chip{
   display:flex;align-items:center;gap:8px;
   padding:7px 12px;border:1px solid var(--line);border-radius:var(--r);
@@ -129,16 +121,15 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
 .chip-txt{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--tx2);white-space:nowrap;}
 .chip-txt b{color:var(--tx1);font-weight:500;}
 
-/* 토글 그룹 */
 .tgroup{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--bg1);}
 .tog{
   font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
   letter-spacing:.4px;padding:7px 12px;
   cursor:pointer;color:var(--tx2);border:none;background:transparent;
   transition:color .15s,background .15s;border-radius:0;
-  min-height:40px;   /* ★ 클릭 타겟 확대 */
+  min-height:40px;
 }
-.tog::after{content:none;}   /* 토글은 그룹 내 인접이라 확장 판정 제외 */
+.tog::after{content:none;}
 @media(min-width:768px){ .tog{font-size:12px;padding:8px 14px;} }
 .tog+.tog{border-left:1px solid var(--line-soft);}
 .tog:hover{color:var(--tx1);}
@@ -147,12 +138,10 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
 
 .ctrl-row{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;}
 
-/* ★ 설정 시트/기어: 데스크톱은 기존처럼 헤더 안에 인라인 배치 */
 .gearbtn{display:none;}
 #setWrap{display:contents;}
 .sheet-head{display:none;}
 
-/* ★ 모바일 헤더: 컴팩트 2행 + 설정은 바텀시트로 */
 @media(max-width:767px){
   header{
     display:grid;grid-template-columns:1fr auto;align-items:center;
@@ -201,7 +190,7 @@ main{
 }
 @media(max-width:767px){
   main{grid-template-columns:1fr;grid-template-rows:1fr auto;}
-  .panel.peak-p .vel-num{font-size:min(29vw,22vh);}   /* ★ 높이 기준도 함께 제한해 잘림 방지 */
+  .panel.peak-p .vel-num{font-size:min(29vw,22vh);}
   .panel{padding:10px;}
   .vel-tag{margin-bottom:2px;}
   .zone{margin-top:8px;}
@@ -238,7 +227,6 @@ main{
 @keyframes peakFlash{0%{transform:scale(1)}25%{transform:scale(1.025)}100%{transform:scale(1)}}
 .flash{animation:peakFlash .32s cubic-bezier(.2,.8,.3,1);}
 
-/* VBT 존 배지 */
 .zone{
   margin-top:12px;display:flex;align-items:center;gap:8px;
   padding:5px 14px;border-radius:100px;
@@ -261,7 +249,6 @@ main{
 }
 .cand-bar.on{opacity:1;}
 
-/* 우측 컬럼: current + 세션 통계 */
 .side{display:flex;flex-direction:column;gap:1px;background:var(--line-soft);overflow:hidden;}
 .side .panel{flex:1;}
 .side .vel-num{font-size:clamp(56px,9vw,120px);}
@@ -309,6 +296,7 @@ main{
   font-family:'JetBrains Mono',monospace;color:var(--tx1);font-size:12px;font-weight:500;
   font-variant-numeric:tabular-nums;
 }
+.sval.cooldown{color:var(--ora);}   /* ★ 쿨다운(진동 무시) 중 강조 */
 @media(min-width:768px){ .sval{font-size:14px;} .skey{font-size:9.5px;} }
 
 /* ═══════════ CHART ═══════════ */
@@ -332,15 +320,13 @@ main{
   color:var(--tx3);text-transform:uppercase;pointer-events:none;
 }
 
-/* ═══════════ CONNECT OVERLAY (거대 타겟 연결 화면) ═══════════ */
+/* ═══════════ CONNECT OVERLAY ═══════════ */
 #connOverlay{
   position:fixed;inset:0;background:var(--bg0);z-index:500;
   display:none;flex-direction:column;
 }
 #connOverlay.show{display:flex;}
-.conn-head{
-  padding:26px 24px 18px;text-align:center;flex-shrink:0;
-}
+.conn-head{ padding:26px 24px 18px;text-align:center;flex-shrink:0; }
 .conn-head h2{
   font-family:'Bebas Neue',sans-serif;font-size:clamp(30px,6vw,44px);
   letter-spacing:4px;color:var(--tx1);line-height:1;
@@ -400,7 +386,7 @@ main{
   color:var(--ora);
 }
 
-/* ═══════════ TOAST (미지원 안내) ═══════════ */
+/* ═══════════ TOAST ═══════════ */
 #noser{
   display:none;position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);
   background:var(--bg2);border:1px solid var(--red);border-radius:var(--r);
@@ -456,7 +442,7 @@ main{
   <h1>VelTrain</h1>
   <div class="tagline">Velocity Based Training</div>
   <button class="btn-start" onclick="startApp()">Start Session</button>
-  <div class="ver">v2.2 · USB / BLE</div>
+  <div class="ver">v2.3 · USB / BLE</div>
 </div>
 
 <header>
@@ -623,7 +609,7 @@ function startApp() {
     }
   } catch(e) {}
   document.getElementById('startOverlay').style.display = 'none';
-  if (!connected && !bleConnected) openConnect();   // ★ 시작 직후 연결 온보딩
+  if (!connected && !bleConnected) openConnect();
 }
 
 function exitApp() {
@@ -647,20 +633,19 @@ const CFG = {
   OVERFLOW_THR:40000, OVERFLOW_WRAP:65536,
   MIN_LIFT:6.0, MIN_PEAK_VEL:0.10, MIN_REP_TIME:0.10,
   PEAK_HW:2, DESC_N:2, VEL_MAX:1.5,
-  DESC_FAST:0.15,    // ★ 이 속도(m/s) 이상으로 하강하면 1샘플만에 최고점 판정
-  ASC_FAST:0.15,     // ★ 이 속도(m/s) 이상으로 상승하면 1샘플만에 새 rep 시작
-  ASC_N:2,           // ★ 느린 상승은 연속 2샘플 확인 후 rep 시작
-  ASC_OVERRIDE:3,    // ★ 연속 상승 3샘플(0.15s)이면 쿨다운 무시하고 rep 시작
-  BOUNCE_COOLDOWN:1.5,
-  CALIB_GAIN:1.16,   // ★ Gymaware 대비 실측 보정계수 (2026-07 캘리브레이션)
+  DESC_FAST:0.15,    // 이 속도(m/s) 이상 하강하면 1샘플만에 최고점 판정
+  ASC_FAST:0.15,     // 이 속도(m/s) 이상 상승하면 1샘플만에 새 rep 시작
+  ASC_N:2,           // 느린 상승은 연속 2샘플 확인 후 rep 시작
+  BOUNCE_COOLDOWN:1.5,   // ★ 피크 출력 후 이 시간(초) 동안 감지 완전 정지
+  CALIB_GAIN:1.16,   // Gymaware 대비 실측 보정계수
 };
 
-// ★ BLE — Nordic UART Service (ESP32 펌웨어 v7)
+// BLE — Nordic UART Service (ESP32 펌웨어 v7)
 const BLE_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const BLE_TX_CHAR = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 const BLE_NAME    = 'VelTrain';
 
-// ★ VBT 속도 존 (m/s 기준, 일반적인 VBT 분류)
+// VBT 속도 존
 const ZONES = [
   { max:0.50,     name:'Max Strength',   color:'var(--z-str)' },
   { max:0.75,     name:'Strength-Speed', color:'var(--z-ss)'  },
@@ -713,7 +698,7 @@ if (isMobile) {
 }
 
 // ════════════════════════════════
-//  TTS — Google Translate 음성
+//  TTS
 // ════════════════════════════════
 let _wsVoice = null;
 function _loadVoice() {
@@ -764,17 +749,22 @@ let repCnt=0, lastPeak=null;
 let lenInit=null, lenOld=0;
 const lenBuf=[];
 let repV=[0], repL=[0];
-let cooldownStart=null;
 let inLift=false, savT=0, descN=0, candLen=null, initSw=true, isMaxL=false;
-let peakEmitted=false;   // ★ 이번 리프트에서 이미 최고점 출력했는지
-let ascN=0;              // ★ 연속 상승 샘플 카운터
-let repStartLen=0;       // ★ 이번 rep이 시작된 높이 (어느 지점이든 가능)
+let peakEmitted=false;   // 이번 리프트에서 이미 최고점 출력했는지
+let ascN=0;              // 연속 상승 샘플 카운터
+let repStartLen=0;       // 이번 rep이 시작된 높이
+let lastPeakTime=null;   // ★ 마지막 피크 출력 시각 — 진동 차단 잠금 기준
 
-// ★ BLE 상태
+// BLE 상태
 let bleDevice=null, bleChar=null, bleConnected=false;
 
+// ★ 현재 쿨다운(진동 무시) 구간인지 판정
+function inCooldown(now) {
+  return lastPeakTime !== null && (now - lastPeakTime) < CFG.BOUNCE_COOLDOWN;
+}
+
 // ════════════════════════════════
-//  SENSOR PARSER (USB — raw count 형식)
+//  SENSOR PARSER (USB — raw count)
 // ════════════════════════════════
 function parseRaw(raw) {
   try {
@@ -823,7 +813,7 @@ function beep() {
 }
 
 // ════════════════════════════════
-//  COLOR (velocity → rgb)
+//  COLOR
 // ════════════════════════════════
 function col(vel) {
   if (vel <= 0) return '#4d7dff';
@@ -945,7 +935,6 @@ function drawChart() {
     ctx.fillText(v.toFixed(1), padL + 2, y - 4);
   });
 
-  // 세션 베스트 기준선
   if (sessBest !== null && repHist.length >= 2) {
     const yB = ptY(sessBest);
     ctx.strokeStyle = 'rgba(200,255,0,0.16)';
@@ -1029,8 +1018,18 @@ function updStatus(len) {
   if (len !== null) document.getElementById('sHeight').textContent = len.toFixed(2) + ' cm';
   document.getElementById('sLift').textContent =
     inLift ? (candLen !== null ? 'Descending' : 'Lifting') : '—';
-  document.getElementById('sStat').textContent =
+  const st = document.getElementById('sStat');
+  st.textContent =
     candLen !== null ? 'Confirming' : inLift ? 'In lift' : (connected||bleConnected) ? 'Waiting' : 'Idle';
+  st.classList.remove('cooldown');
+}
+// ★ 쿨다운 중 상태 표시
+function showCooldown(len) {
+  document.getElementById('sHeight').textContent = len.toFixed(2) + ' cm';
+  document.getElementById('sLift').textContent = '—';
+  const st = document.getElementById('sStat');
+  st.textContent = 'Cooldown';
+  st.classList.add('cooldown');
 }
 function setCand(len) {
   const b = document.getElementById('candBar');
@@ -1038,7 +1037,6 @@ function setCand(len) {
   else b.classList.remove('on');
 }
 function setConnChip(kind) {
-  // kind: 'usb' | 'ble' | 'err' | null
   const t = document.getElementById('connTxt');
   if (kind === 'usb')      t.innerHTML = '<b>USB</b> · Connected';
   else if (kind === 'ble') t.innerHTML = '<b>BLE</b> · Connected';
@@ -1051,7 +1049,7 @@ function setConnChip(kind) {
 // ════════════════════════════════
 function emitPeak(now) {
   let val = showMode === 1 ? repPeak() : repMean();
-  val *= CFG.CALIB_GAIN;   // ★ Gymaware 대비 보정계수 적용
+  val *= CFG.CALIB_GAIN;
   if (val < CFG.MIN_PEAK_VEL) { repReset(); savT = now; return; }
   lastPeak = val;
   showPeak(val);
@@ -1061,35 +1059,36 @@ function emitPeak(now) {
   repReset(); savT = now;
   repCnt++;
   document.getElementById('sRep').textContent = repCnt;
+  lastPeakTime = now;   // ★ 이 시점부터 BOUNCE_COOLDOWN 동안 감지 정지
 }
 
 // ════════════════════════════════
-//  MODE 1 — 방향 기반 rep 감지
+//  MODE 1 — 방향 기반 rep 감지 + 피크 후 잠금
+//  · 피크 출력 후 BOUNCE_COOLDOWN 동안 감지를 완전히 정지
+//    → 바벨을 내려놓을 때의 진동/바운스가 속도로 표시되지 않음
 //  · 바닥 복귀 불필요: 어느 높이에서든 상승 시작 = 새 rep
 //  · 상승 시작: 확실한 상승 1샘플(≥ASC_FAST) 또는 느린 상승 2샘플
 //  · 최고점 도달: 확실한 하강 1샘플(≤-DESC_FAST) 또는 느린 하강 2샘플
-//    → 즉시 속도 출력
 //  · 오인식 방어: rep 상승량이 MIN_LIFT(6cm) 미만이면 무시
 // ════════════════════════════════
 function mode1(vel, vs, len, now) {
+  // ★ 잠금 구간: 모든 감지 정지, 상태 초기화
+  if (inCooldown(now)) {
+    inLift = false; descN = 0; ascN = 0; peakEmitted = false;
+    repReset(); setCand(null);
+    showCooldown(len);
+    return;
+  }
+
   if (!inLift) {
     // ── 상승 시작 감지 (현재 높이와 무관) ──
     if (vs > 0) { ascN++; } else { ascN = 0; }
-    const fastRise   = vs >= CFG.ASC_FAST;
-    const cooldownOk = cooldownStart === null ||
-                       (now - cooldownStart) >= CFG.BOUNCE_COOLDOWN;
-
-    // ★ 쿨다운 중이라도 연속 상승 ASC_OVERRIDE샘플(0.15s)이면
-    //   진짜 리프트로 판단하고 rep 시작
-    //   → 멈춤 출력 직후 이어서 올리는 동작이 잘리지 않음
-    //   (바닥에 내려놓을 때 바운스는 연속 상승이 짧아 통과 못함
-    //    + 통과해도 상승량 6cm 미달로 출력 안 됨)
-    const startOk = (fastRise || ascN >= CFG.ASC_N) &&
-                    (cooldownOk || ascN >= CFG.ASC_OVERRIDE);
+    const fastRise = vs >= CFG.ASC_FAST;
+    const startOk  = fastRise || ascN >= CFG.ASC_N;
 
     if (startOk) {
       inLift = true; savT = now;
-      repStartLen = len;          // ★ 시작 높이 기록 (0일 필요 없음)
+      repStartLen = len;
       descN = 0; ascN = 0;
       peakEmitted = false;
       repReset();
@@ -1102,26 +1101,27 @@ function mode1(vel, vs, len, now) {
 
     const fastDrop = vs <= -CFG.DESC_FAST;
     if (fastDrop || descN >= CFG.DESC_N) {
-      // 최고점 도달 → 상승량 검증 후 출력
       const rise = repMaxL() - repStartLen;
       if (!peakEmitted && rise >= CFG.MIN_LIFT &&
           now - savT >= CFG.MIN_REP_TIME) {
-        emitPeak(now);
+        emitPeak(now);            // ★ 내부에서 lastPeakTime 설정 → 잠금 시작
       } else {
-        repReset();   // 상승량 미달 → 노이즈/미세움직임으로 폐기
+        repReset();   // 상승량 미달 → 노이즈로 폐기
       }
       inLift = false; descN = 0; ascN = 0;
       peakEmitted = false;
-      cooldownStart = now;   // 하강/바운스 중 재감지 방지
     }
   }
   setCand(null); updStatus(len);
 }
 
 // ════════════════════════════════
-//  MODE 2
+//  MODE 2 (Lunge)
 // ════════════════════════════════
 function mode2(vel, len, now) {
+  // ★ Lunge 모드에도 동일한 잠금 적용
+  if (inCooldown(now)) { showCooldown(len); return; }
+
   if (len > CFG.MIN_LIFT && initSw && !inLift) {
     inLift = true; initSw = false; savT = now; repReset(); updStatus(len); return;
   }
@@ -1129,11 +1129,12 @@ function mode2(vel, len, now) {
     repAdd(vel, len);
     if (now - savT > CFG.MIN_REP_TIME && isMaxL) {
       let p = repPeak();
-      p *= CFG.CALIB_GAIN;   // ★ Gymaware 대비 보정계수 적용 (Lunge 모드)
+      p *= CFG.CALIB_GAIN;
       if (p >= CFG.MIN_PEAK_VEL) {
         lastPeak = p; showPeak(p); beep(); speak(p); addBar(p);
         repReset(); savT = now;
         repCnt++; document.getElementById('sRep').textContent = repCnt;
+        lastPeakTime = now;   // ★ 잠금 시작
       }
     }
   }
@@ -1141,7 +1142,7 @@ function mode2(vel, len, now) {
 }
 
 // ════════════════════════════════
-//  ★ COMMON SAMPLE PROCESSOR (USB / BLE 공용)
+//  COMMON SAMPLE PROCESSOR (USB / BLE 공용)
 // ════════════════════════════════
 function processSample(vs, len) {
   const vel = Math.max(vs, 0);
@@ -1154,14 +1155,17 @@ function processSample(vs, len) {
   lenBuf.push(len);
   if (lenBuf.length > 200) lenBuf.shift();
 
-  updCurr(vel);
   const now = performance.now() / 1000;
+
+  // ★ 잠금 구간에는 Current 속도도 0으로 표시 (진동값 노출 방지)
+  updCurr(inCooldown(now) ? 0 : vel);
+
   if (liftMode === 1) mode1(vel, vs, len, now);
   else                mode2(vel, len, now);
   lenOld = len;
 }
 
-// USB 라인 처리: raw count → len 계산 후 공용 처리
+// USB 라인 처리
 function processLine(raw) {
   const len = parseRaw(raw);
   if (len === null) return;
@@ -1169,7 +1173,7 @@ function processLine(raw) {
   processSample(vs, len);
 }
 
-// ★ BLE 라인 처리: 펌웨어 v7 형식 "V:{속도m/s},{길이cm}"
+// BLE 라인 처리: "V:{속도m/s},{길이cm}"
 function processBleLine(raw) {
   if (!raw.startsWith('V:')) return;
   const parts = raw.slice(2).split(',');
@@ -1177,15 +1181,13 @@ function processBleLine(raw) {
   const vs   = parseFloat(parts[0]);
   let   lenA = parseFloat(parts[1]);
   if (isNaN(vs) || isNaN(lenA)) return;
-  // 연결 시점 기준으로 0점 보정 (펌웨어가 부팅 시점 기준이므로)
   if (lenInit === null) lenInit = lenA;
   const len = lenA - lenInit;
   processSample(vs, len);
 }
 
 // ════════════════════════════════
-//  ★ FULLSCREEN HELPER
-//  (포트/기기 선택 팝업은 전체화면에서 표시되지 않음)
+//  FULLSCREEN HELPER
 // ════════════════════════════════
 async function withChooserVisible(fn) {
   const wasFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -1219,7 +1221,9 @@ async function openPort(p) {
   await port.open({ baudRate: CFG.BAUDRATE });
   connected = true; running = true;
   lenInit = null; lenOld = 0; lenBuf.length = 0;
-  inLift = false; descN = 0; candLen = null; repReset();
+  inLift = false; descN = 0; ascN = 0; candLen = null;
+  lastPeakTime = null;   // ★ 연결 시 잠금 초기화
+  repReset();
   setConnUI(true); readLoop();
 }
 
@@ -1290,24 +1294,15 @@ async function readLoop() {
 }
 
 // ════════════════════════════════
-//  ★ WEB BLUETOOTH (BLE) — ESP32 펌웨어 v7
-//
-//  [재연결 문제 수정 사항]
-//  1. filters: name → namePrefix
-//     펌웨어가 "VelTrain-XXXX"처럼 접미사를 붙여도 검색됨
-//  2. bleDisconnect()에서 이벤트 리스너 제거 + bleDevice=null
-//     이전 기기 참조가 남아 재검색을 방해하던 문제 해결
-//  3. bleConnect() 시작 시 이전 세션 잔재 완전 정리
-//  4. GATT 연결 실패 시 지수 백오프 재시도 (ESP32가
-//     이전 연결을 정리하는 데 1~2초 걸리는 경우 대응)
+//  WEB BLUETOOTH (BLE)
+//  · namePrefix 필터, 세션 잔재 정리, GATT 재시도
 // ════════════════════════════════
 async function toggleBle() { if (bleConnected) await bleDisconnect(); else await bleConnect(); }
 
 let bleBuf = '';
-let bleRx = 0;           // ★ 수신 알림 카운터 (진단용)
-let bleUnknown = 0;      // ★ 미인식 형식 라인 수
+let bleRx = 0;
+let bleUnknown = 0;
 
-// ★ 이전 BLE 세션의 잔재를 완전히 정리 (재연결 문제의 핵심 수정)
 function cleanupBle() {
   try {
     if (bleChar) {
@@ -1317,7 +1312,7 @@ function cleanupBle() {
     if (bleDevice) {
       try { bleDevice.removeEventListener('gattserverdisconnected', onBleDisconnected); } catch(e) {}
       try { if (bleDevice.gatt && bleDevice.gatt.connected) bleDevice.gatt.disconnect(); } catch(e) {}
-      bleDevice = null;   // ★ 기기 참조 완전 해제 → 다음 requestDevice가 새로 검색
+      bleDevice = null;
     }
   } catch(e) { console.warn('cleanupBle:', e); }
   bleConnected = false;
@@ -1331,7 +1326,6 @@ async function bleConnect() {
   }
   if (connected) await doDisc();
 
-  // ★ 이전 세션 잔재 정리 — 이게 없으면 두 번째 연결부터 실패하는 경우가 있음
   cleanupBle();
 
   if (!actx) {
@@ -1340,17 +1334,13 @@ async function bleConnect() {
   }
   if (actx.state === 'suspended') actx.resume();
 
-  // ── 1단계: 기기 검색 ──
   try {
     bleDevice = await withChooserVisible(() => navigator.bluetooth.requestDevice({
-      // ★ name(정확 일치) → namePrefix(접두사 일치)로 변경
-      //   "VelTrain", "VelTrain-A1B2" 등 모두 매칭됨
       filters: [{ namePrefix: BLE_NAME }],
       optionalServices: [BLE_SERVICE],
     }));
   } catch(e) {
     if (e.name === 'NotFoundError') {
-      // 사용자가 취소했거나 기기가 목록에 없음
       connHint('센서가 목록에 없다면: ① 센서 전원 확인 ② 다른 기기에서 연결 중인지 확인 (BLE는 동시에 1대만 연결 가능)');
     } else {
       console.error('BLE requestDevice:', e);
@@ -1358,9 +1348,6 @@ async function bleConnect() {
     return;
   }
 
-  // ── 2단계: GATT 연결 (최대 3회 재시도) ──
-  //   ESP32가 직전 연결을 정리 중이면 첫 connect()가 실패할 수 있어
-  //   짧은 백오프 후 재시도하면 대부분 성공함
   setBleUI('connecting');
   bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
 
@@ -1376,19 +1363,19 @@ async function bleConnect() {
       bleConnected = true;
       lenInit = null; lenOld = 0; lenBuf.length = 0; bleBuf = '';
       bleRx = 0; bleUnknown = 0;
-      inLift = false; descN = 0; candLen = null; repReset();
+      inLift = false; descN = 0; ascN = 0; candLen = null;
+      lastPeakTime = null;   // ★ 연결 시 잠금 초기화
+      repReset();
       setBleUI(true);
       console.log('[BLE] connected (attempt ' + attempt + ')');
-      return;   // 성공
+      return;
     } catch(e) {
       lastErr = e;
       console.warn('[BLE] connect attempt ' + attempt + ' failed:', e);
-      // 다음 시도 전 잠깐 대기 (0.5s → 1s)
       if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 500));
     }
   }
 
-  // 3회 모두 실패
   console.error('BLE connect:', lastErr);
   setBleUI(false, true);
   connHint('BLE 연결에 실패했습니다. 센서 전원을 껐다 켠 후 다시 시도하세요.');
@@ -1398,13 +1385,12 @@ async function bleConnect() {
 function onBleData(ev) {
   try {
     bleRx++;
-    // ★ 진단: 수신 횟수를 상태 칩에 표시 → 알림이 오는지 화면에서 바로 확인 가능
     if (bleRx % 10 === 1) {
       document.getElementById('connTxt').innerHTML = '<b>BLE</b> · RX ' + bleRx;
     }
 
     const chunk = new TextDecoder().decode(ev.target.value);
-    bleBuf += chunk.replace(/\r/g, '\n');   // ★ CR/CRLF 모두 대응
+    bleBuf += chunk.replace(/\r/g, '\n');
 
     const ls = bleBuf.split('\n'); bleBuf = ls.pop();
     for (const l of ls) {
@@ -1412,14 +1398,12 @@ function onBleData(ev) {
       if (t) handleBleLine(t);
     }
 
-    // ★ 줄바꿈 없이 알림당 1메시지를 보내는 펌웨어 대응:
-    //    남은 버퍼가 자체로 완전한 "V:x,y" 형태면 즉시 처리
     const rest = bleBuf.trim();
     if (rest && /^V:-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(rest)) {
       handleBleLine(rest);
       bleBuf = '';
     }
-    if (bleBuf.length > 200) bleBuf = '';   // 쓰레기 누적 방지
+    if (bleBuf.length > 200) bleBuf = '';
   } catch(e) { console.error('onBleData:', e); }
 }
 
@@ -1427,7 +1411,6 @@ function handleBleLine(t) {
   if (t.startsWith('V:')) {
     try { processBleLine(t); } catch(e) { console.error('processBleLine:', e); }
   } else {
-    // ★ 진단: 예상 형식이 아닌 데이터가 오면 원본을 화면에 보여줌 (최초 3회)
     bleUnknown++;
     console.warn('[BLE] 미인식 형식:', JSON.stringify(t));
     if (bleUnknown <= 3) {
@@ -1438,7 +1421,6 @@ function handleBleLine(t) {
 }
 
 function onBleDisconnected() {
-  // ★ 연결이 끊어지면 잔재를 완전히 정리해 다음 연결이 깨끗하게 시작되도록 함
   console.log('[BLE] disconnected');
   cleanupBle();
   setBleUI(false);
@@ -1446,12 +1428,11 @@ function onBleDisconnected() {
 
 async function bleDisconnect() {
   try {
-    // stopNotifications는 연결이 살아있을 때만 의미 있음
     if (bleChar && bleDevice && bleDevice.gatt && bleDevice.gatt.connected) {
       try { await bleChar.stopNotifications(); } catch(e) {}
     }
   } catch(e) { console.warn('bleDisconnect:', e); }
-  cleanupBle();   // ★ 리스너 제거 + gatt.disconnect + 참조 해제까지 한번에
+  cleanupBle();
   setBleUI(false);
 }
 
@@ -1469,7 +1450,7 @@ function setBleUI(state, err=false) {
     dot.className   = 'dot ble';
     setConnChip('ble');
     document.getElementById('sStat').textContent = 'Waiting';
-    closeConnect();   // ★ 연결 성공 → 온보딩 닫기
+    closeConnect();
   } else {
     btn.textContent = 'BLE';
     btn.className   = '';
@@ -1483,7 +1464,7 @@ function setBleUI(state, err=false) {
 }
 
 // ════════════════════════════════
-//  ★ CONNECT OVERLAY (거대 타겟 연결 화면)
+//  CONNECT OVERLAY
 // ════════════════════════════════
 function openConnect(){
   document.getElementById('connHint').textContent = '';
@@ -1495,15 +1476,12 @@ function closeConnect(){
 function connHint(msg){
   document.getElementById('connHint').textContent = msg;
 }
-// 연결이 안 된 상태에서 메인 Peak 패널(대형 영역)을 클릭하면 연결 화면 다시 열기
 document.querySelector('.panel.peak-p').addEventListener('click', () => {
   if (!connected && !bleConnected) openConnect();
 });
-// ★ 모바일 설정 시트
 function toggleSheet(){
   document.getElementById('setWrap').classList.toggle('open');
 }
-// Esc로 연결 화면/설정 시트 닫기
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeConnect();
@@ -1530,7 +1508,7 @@ function setConnUI(on, err=false) {
     setConnChip(on ? 'usb' : err ? 'err' : null);
     document.getElementById('sStat').textContent = on ? 'Waiting' : 'Idle';
   }
-  if (on) closeConnect();   // ★ 연결 성공 → 온보딩 닫기
+  if (on) closeConnect();
   else if (err) connHint('USB 연결에 실패했습니다. 케이블과 포트 점유 여부를 확인하세요.');
   updStatus(null);
 }
@@ -1541,7 +1519,7 @@ function setShow(v) {
   document.getElementById('peakTag').textContent = v===1 ? 'Peak Velocity' : 'Mean Velocity';
 }
 function setCooldown(btn, v) {
-  CFG.BOUNCE_COOLDOWN = v;
+  CFG.BOUNCE_COOLDOWN = v;   // ★ 피크 후 잠금 시간을 그대로 제어
   document.querySelectorAll('#cdGroup .tog').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
 }
@@ -1555,13 +1533,12 @@ function setMode(v) {
   });
 }
 
-// ★ PWA — 서비스 워커 등록 (오프라인 동작 + 설치 가능)
+// PWA — 서비스 워커 등록
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW register:', e));
   });
 }
-// PWA로 실행 중이면 시작화면 버전 표기에 반영
 if (window.matchMedia('(display-mode: fullscreen)').matches ||
     window.matchMedia('(display-mode: standalone)').matches) {
   const v = document.querySelector('#startOverlay .ver');
@@ -1584,8 +1561,7 @@ if (!('bluetooth' in navigator)) {
   bb.querySelector('.bb-desc').textContent = '이 기기에서는 사용할 수 없습니다';
 }
 
-// ★ 키보드 단축키 (마우스 클릭이 어긋나는 환경 대비)
-//   U: USB 연결/해제, B: BLE 연결/해제
+// 키보드 단축키 (U: USB, B: BLE)
 document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
