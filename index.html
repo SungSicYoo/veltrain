@@ -1189,26 +1189,24 @@ function processBleLine(raw) {
 // ════════════════════════════════
 //  FULLSCREEN HELPER
 // ════════════════════════════════
-async function withChooserVisible(fn) {
-  const wasFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  if (wasFs) {
-    try {
-      if (document.exitFullscreen) await document.exitFullscreen();
-      else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-    } catch(e) {}
-    await new Promise(r => setTimeout(r, 150));
-  }
+// ★ 중요: 선택창(requestPort / requestDevice)은 버튼 클릭의 "사용자 제스처"가
+//   살아있는 동안에만 열 수 있습니다. 예전처럼 exitFullscreen 을 await 하거나
+//   setTimeout 으로 기다리면 제스처가 끊겨 SecurityError 가 발생하고
+//   선택창이 아예 뜨지 않습니다.
+//   → 전체화면 해제는 await 하지 않고 발사만 하고, 곧바로 fn() 을 호출합니다.
+function exitFsNoWait() {
   try {
-    return await fn();
-  } finally {
-    if (wasFs) {
-      try {
-        const elem = document.documentElement;
-        if (elem.requestFullscreen) elem.requestFullscreen().catch(()=>{});
-        else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen().catch(()=>{});
-      } catch(e) {}
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(()=>{});
+    } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
     }
-  }
+  } catch(e) {}
+}
+
+async function withChooserVisible(fn) {
+  exitFsNoWait();          // await 하지 않음 → 제스처 유지
+  return await fn();       // 같은 태스크에서 즉시 선택창 호출
 }
 
 // ════════════════════════════════
@@ -1235,19 +1233,51 @@ async function doConn() {
     audioUnlocked = true;
   }
   if (actx.state === 'suspended') actx.resume();
+
+  // ── 1단계: 이전에 권한을 준 포트로 자동 연결 시도 ──
+  //   실패해도 여기서 끝내지 않고 2단계(수동 선택)로 넘어감
   try {
     const prev = await navigator.serial.getPorts();
-    if (prev.length === 1) {
-      await openPort(prev[0]);
-    } else if (prev.length > 1) {
-      const usb = prev.find(p => p.getInfo().usbVendorId !== undefined);
-      await openPort(usb || prev[0]);
-    } else {
-      const chosen = await withChooserVisible(() => navigator.serial.requestPort());
-      await openPort(chosen);
+    if (prev.length > 0) {
+      const usb = prev.find(p => p.getInfo().usbVendorId !== undefined) || prev[0];
+      try {
+        await openPort(usb);
+        return;                         // 자동 연결 성공
+      } catch(e) {
+        console.warn('[USB] 자동 연결 실패 → 수동 선택으로 전환:', e);
+        try { if (port) { await port.close(); } } catch(_) {}
+        port = null; connected = false; running = false;
+      }
     }
   } catch(e) {
-    if (e.name !== 'NotFoundError') { console.error(e); setConnUI(false, true); }
+    console.warn('[USB] getPorts 실패:', e);
+  }
+
+  // ── 2단계: 포트 선택창 (사용자 제스처 필요) ──
+  let chosen = null;
+  try {
+    chosen = await withChooserVisible(() => navigator.serial.requestPort());
+  } catch(e) {
+    if (e.name === 'NotFoundError') {
+      // 사용자가 취소했거나 목록이 비어있음
+      connHint('선택할 장치가 없습니다. 센서 USB 케이블 연결과, 다른 프로그램(Arduino IDE·다른 탭)이 포트를 쓰고 있지 않은지 확인하세요.');
+    } else if (e.name === 'SecurityError' || e.name === 'InvalidStateError') {
+      connHint('선택창을 열 수 없습니다. USB 버튼을 다시 한 번 눌러주세요.');
+    } else {
+      console.error('[USB] requestPort:', e);
+      connHint('USB 오류: ' + e.name + ' — ' + e.message);
+    }
+    setConnUI(false, true);
+    return;
+  }
+
+  // ── 3단계: 선택한 포트 열기 ──
+  try {
+    await openPort(chosen);
+  } catch(e) {
+    console.error('[USB] openPort:', e);
+    connHint('포트를 열 수 없습니다 (' + e.name + '). 다른 프로그램이 사용 중이거나 케이블을 확인하세요.');
+    setConnUI(false, true);
   }
 }
 
