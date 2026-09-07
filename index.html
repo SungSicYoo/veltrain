@@ -179,6 +179,9 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
   .conn-grp .grp-row{display:flex;gap:6px;}
   .chip{flex:1;min-width:0;}
   .chip-txt{overflow:hidden;text-overflow:ellipsis;}
+  /* 좁은 화면에서는 배터리 칩을 자연 폭으로 두고 전압은 감춘다 */
+  .chip.batt{flex:0 0 auto;}
+  .chip.batt .bv{display:none;}
 
   #setWrap{
     display:none;position:fixed;left:0;right:0;bottom:0;z-index:400;
@@ -1474,7 +1477,8 @@ function processBattLine(t) {
   fill.style.width = pct + '%';
   fill.style.background =
     pct <= 15 ? 'var(--red)' : pct <= 30 ? 'var(--ora)' : 'var(--acc)';
-  txt.innerHTML = '<b>' + pct.toFixed(0) + '%</b> ' + volt.toFixed(2) + 'V';
+  txt.innerHTML = '<b>' + pct.toFixed(0) + '%</b>' +
+                  '<span class="bv"> ' + volt.toFixed(2) + 'V</span>';
 }
 
 function battReset() {
