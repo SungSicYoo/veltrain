@@ -121,21 +121,25 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
 .chip-txt{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--tx2);white-space:nowrap;}
 .chip-txt b{color:var(--tx1);font-weight:500;}
 
-/* 배터리 표시 — BLE 로 B: 라인을 받으면 나타난다 */
-.chip[hidden]{display:none;}
-.chip.batt{min-width:0;gap:7px;padding:7px 11px;flex-shrink:0;}
-.chip.batt .bicon{
-  width:21px;height:11px;padding:1.5px;flex-shrink:0;
-  border:1px solid var(--tx3);border-radius:2px;position:relative;
+/* 배터리 표시 — BLE 로 B: 라인을 받으면 나타난다.
+   넓은 화면에서는 Reset 왼쪽(.ctrl-row), 좁은 화면에서는 연결 줄에 표시한다. */
+.batt-chip{display:none;gap:10px;padding:8px 14px;min-width:0;flex-shrink:0;}
+@media(min-width:768px){ body.has-batt .ctrl-row  .batt-chip{display:flex;} }
+@media(max-width:767px){ body.has-batt .conn-grp  .batt-chip{display:flex;} }
+
+.batt-chip .bicon{
+  width:28px;height:14px;padding:2px;flex-shrink:0;
+  border:1.5px solid var(--tx2);border-radius:3px;position:relative;
 }
-.chip.batt .bicon::after{
-  content:"";position:absolute;right:-3px;top:3px;
-  width:2px;height:5px;background:var(--tx3);border-radius:0 1px 1px 0;
+.batt-chip .bicon::after{
+  content:"";position:absolute;right:-4px;top:3.5px;
+  width:3px;height:7px;background:var(--tx2);border-radius:0 2px 2px 0;
 }
-.chip.batt .bfill{
-  height:100%;width:0;background:var(--acc);border-radius:1px;
+.batt-chip .bfill{
+  height:100%;width:0;background:var(--acc);border-radius:1.5px;
   transition:width .6s ease,background .3s;
 }
+.batt-chip .chip-txt{font-size:12px;}
 
 .tgroup{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--bg1);}
 .tog{
@@ -179,9 +183,9 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
   .conn-grp .grp-row{display:flex;gap:6px;}
   .chip{flex:1;min-width:0;}
   .chip-txt{overflow:hidden;text-overflow:ellipsis;}
-  /* 좁은 화면에서는 배터리 칩을 자연 폭으로 두고 전압은 감춘다 */
-  .chip.batt{flex:0 0 auto;}
-  .chip.batt .bv{display:none;}
+  /* 좁은 화면에서는 자연 폭으로 두고 전압은 감춘다 */
+  .batt-chip{flex:0 0 auto;}
+  .batt-chip .bv{display:none;}
 
   #setWrap{
     display:none;position:fixed;left:0;right:0;bottom:0;z-index:400;
@@ -481,9 +485,9 @@ main{
       </div>
       <button id="conBtn" onclick="toggleConn()">USB</button>
       <button id="bleBtn" onclick="toggleBle()">BLE</button>
-      <div class="chip batt" id="battChip" hidden>
-        <div class="bicon"><div class="bfill" id="battFill"></div></div>
-        <div class="chip-txt" id="battTxt">—</div>
+      <div class="chip batt-chip">
+        <div class="bicon"><div class="bfill"></div></div>
+        <div class="chip-txt"><b class="bpct">—</b><span class="bv"></span></div>
       </div>
     </div>
   </div>
@@ -532,6 +536,10 @@ main{
     </div>
 
     <div class="ctrl-row">
+      <div class="chip batt-chip">
+        <div class="bicon"><div class="bfill"></div></div>
+        <div class="chip-txt"><b class="bpct">—</b><span class="bv"></span></div>
+      </div>
       <button class="ghost" onclick="location.reload()">Reset</button>
       <button class="danger" onclick="exitApp()">Exit</button>
     </div>
@@ -1462,28 +1470,27 @@ function onBleData(ev) {
 }
 
 // B:잔량퍼센트,전압   예) B:87.5,3.92
+// 칩은 화면 폭에 따라 두 곳 중 하나만 보이므로 양쪽 다 갱신한다.
 function processBattLine(t) {
   const m = /^B:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(t);
   if (!m) return;
   const pct  = Math.max(0, Math.min(100, parseFloat(m[1])));
   const volt = parseFloat(m[2]);
+  const col  = pct <= 15 ? 'var(--red)' : pct <= 30 ? 'var(--ora)' : 'var(--acc)';
 
-  const chip = document.getElementById('battChip');
-  const fill = document.getElementById('battFill');
-  const txt  = document.getElementById('battTxt');
-  if (!chip || !fill || !txt) return;
-
-  chip.hidden = false;
-  fill.style.width = pct + '%';
-  fill.style.background =
-    pct <= 15 ? 'var(--red)' : pct <= 30 ? 'var(--ora)' : 'var(--acc)';
-  txt.innerHTML = '<b>' + pct.toFixed(0) + '%</b>' +
-                  '<span class="bv"> ' + volt.toFixed(2) + 'V</span>';
+  document.querySelectorAll('.batt-chip').forEach(chip => {
+    const fill = chip.querySelector('.bfill');
+    const pctEl = chip.querySelector('.bpct');
+    const vEl   = chip.querySelector('.bv');
+    if (fill)  { fill.style.width = pct + '%'; fill.style.background = col; }
+    if (pctEl) pctEl.textContent = pct.toFixed(0) + '%';
+    if (vEl)   vEl.textContent = ' ' + volt.toFixed(2) + 'V';
+  });
+  document.body.classList.add('has-batt');
 }
 
 function battReset() {
-  const chip = document.getElementById('battChip');
-  if (chip) chip.hidden = true;
+  document.body.classList.remove('has-batt');
 }
 
 function handleBleLine(t) {
