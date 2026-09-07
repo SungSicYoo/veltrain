@@ -121,6 +121,22 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
 .chip-txt{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--tx2);white-space:nowrap;}
 .chip-txt b{color:var(--tx1);font-weight:500;}
 
+/* 배터리 표시 — BLE 로 B: 라인을 받으면 나타난다 */
+.chip[hidden]{display:none;}
+.chip.batt{min-width:0;gap:7px;padding:7px 11px;flex-shrink:0;}
+.chip.batt .bicon{
+  width:21px;height:11px;padding:1.5px;flex-shrink:0;
+  border:1px solid var(--tx3);border-radius:2px;position:relative;
+}
+.chip.batt .bicon::after{
+  content:"";position:absolute;right:-3px;top:3px;
+  width:2px;height:5px;background:var(--tx3);border-radius:0 1px 1px 0;
+}
+.chip.batt .bfill{
+  height:100%;width:0;background:var(--acc);border-radius:1px;
+  transition:width .6s ease,background .3s;
+}
+
 .tgroup{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--bg1);}
 .tog{
   font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
@@ -442,7 +458,7 @@ main{
   <h1>VelTrain</h1>
   <div class="tagline">Velocity Based Training</div>
   <button class="btn-start" onclick="startApp()">Start Session</button>
-  <div class="ver">v2.3 · USB / BLE</div>
+  <div class="ver">v2.4-dev · USB / BLE</div>
 </div>
 
 <header>
@@ -462,6 +478,10 @@ main{
       </div>
       <button id="conBtn" onclick="toggleConn()">USB</button>
       <button id="bleBtn" onclick="toggleBle()">BLE</button>
+      <div class="chip batt" id="battChip" hidden>
+        <div class="bicon"><div class="bfill" id="battFill"></div></div>
+        <div class="chip-txt" id="battTxt">—</div>
+      </div>
     </div>
   </div>
 
@@ -1347,6 +1367,7 @@ function cleanupBle() {
   } catch(e) { console.warn('cleanupBle:', e); }
   bleConnected = false;
   bleBuf = '';
+  battReset();
 }
 
 async function bleConnect() {
@@ -1437,9 +1458,35 @@ function onBleData(ev) {
   } catch(e) { console.error('onBleData:', e); }
 }
 
+// B:잔량퍼센트,전압   예) B:87.5,3.92
+function processBattLine(t) {
+  const m = /^B:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(t);
+  if (!m) return;
+  const pct  = Math.max(0, Math.min(100, parseFloat(m[1])));
+  const volt = parseFloat(m[2]);
+
+  const chip = document.getElementById('battChip');
+  const fill = document.getElementById('battFill');
+  const txt  = document.getElementById('battTxt');
+  if (!chip || !fill || !txt) return;
+
+  chip.hidden = false;
+  fill.style.width = pct + '%';
+  fill.style.background =
+    pct <= 15 ? 'var(--red)' : pct <= 30 ? 'var(--ora)' : 'var(--acc)';
+  txt.innerHTML = '<b>' + pct.toFixed(0) + '%</b> ' + volt.toFixed(2) + 'V';
+}
+
+function battReset() {
+  const chip = document.getElementById('battChip');
+  if (chip) chip.hidden = true;
+}
+
 function handleBleLine(t) {
   if (t.startsWith('V:')) {
     try { processBleLine(t); } catch(e) { console.error('processBleLine:', e); }
+  } else if (t.startsWith('B:')) {
+    try { processBattLine(t); } catch(e) { console.error('processBattLine:', e); }
   } else {
     bleUnknown++;
     console.warn('[BLE] 미인식 형식:', JSON.stringify(t));
