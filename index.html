@@ -684,7 +684,10 @@ const CFG = {
   ASC_FAST:0.15,     // 이 속도(m/s) 이상 상승하면 1샘플만에 새 rep 시작
   ASC_N:2,           // 느린 상승은 연속 2샘플 확인 후 rep 시작
   BOUNCE_COOLDOWN:1.5,   // ★ 피크 출력 후 이 시간(초) 동안 감지 완전 정지
-  CALIB_GAIN:1.16,   // Gymaware 대비 실측 보정계수
+  CALIB_GAIN:1.16,   // Gymaware 대비 실측 보정계수 (속도 전용)
+  LEN_GAIN:1.0675,   // 길이 보정 — 2026-09-11 3점 실측(30/60/90 → 27.64/56.42/84.56)
+                     //   원점통과 직선맞춤 Σ실제/Σ원시 = 1.0675. 길이·속도 모두에 곱함.
+                     //   ※ 현재 기기 펌웨어 FACTOR 기준. 펌웨어 재플래시하면 이 값 재산출 필요.
 };
 
 // BLE — Nordic UART Service (ESP32 펌웨어 v7)
@@ -1231,8 +1234,8 @@ function processBleLine(raw) {
   if (!raw.startsWith('V:')) return;
   const parts = raw.slice(2).split(',');
   if (parts.length < 2) return;
-  const vs   = parseFloat(parts[0]);
-  let   lenA = parseFloat(parts[1]);
+  const vs   = parseFloat(parts[0]) * CFG.LEN_GAIN;   // 속도는 길이의 미분 — 같은 배율
+  let   lenA = parseFloat(parts[1]) * CFG.LEN_GAIN;
   if (isNaN(vs) || isNaN(lenA)) return;
   if (lenInit === null) lenInit = lenA;
   const len = lenA - lenInit;
