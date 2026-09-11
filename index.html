@@ -122,7 +122,8 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
 .chip-txt b{color:var(--tx1);font-weight:500;}
 
 /* 배터리 표시 — BLE 로 B: 라인을 받으면 나타난다.
-   넓은 화면에서는 Reset 왼쪽(.ctrl-row), 좁은 화면에서는 연결 줄에 표시한다. */
+   넓은 화면에서는 Reset 왼쪽(.ctrl-row), 좁은 화면에서는 연결 줄에 표시한다.
+   충전 중(펌웨어가 보내는 CRATE > 0)에는 번개 아이콘과 맥동. */
 .batt-chip{display:none;gap:10px;padding:8px 14px;min-width:0;flex-shrink:0;}
 @media(min-width:768px){ body.has-batt .ctrl-row  .batt-chip{display:flex;} }
 @media(max-width:767px){ body.has-batt .conn-grp  .batt-chip{display:flex;} }
@@ -140,6 +141,21 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
   transition:width .6s ease,background .3s;
 }
 .batt-chip .chip-txt{font-size:12px;}
+
+/* 충전 중 표시 */
+.batt-chip .bolt{
+  position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
+  text-align:center;font-size:10px;line-height:1;pointer-events:none;
+  opacity:0;transition:opacity .25s;
+  text-shadow:0 0 3px var(--bg0),0 0 3px var(--bg0);
+}
+body.batt-charging .batt-chip .bolt{opacity:1;}
+body.batt-charging .batt-chip .bicon{border-color:var(--acc);}
+body.batt-charging .batt-chip .bfill{animation:battpulse 1.8s ease-in-out infinite;}
+@keyframes battpulse{0%,100%{opacity:1}50%{opacity:.4}}
+@media(prefers-reduced-motion:reduce){
+  body.batt-charging .batt-chip .bfill{animation:none;}
+}
 
 .tgroup{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--bg1);}
 .tog{
@@ -486,7 +502,7 @@ main{
       <button id="conBtn" onclick="toggleConn()">USB</button>
       <button id="bleBtn" onclick="toggleBle()">BLE</button>
       <div class="chip batt-chip">
-        <div class="bicon"><div class="bfill"></div></div>
+        <div class="bicon"><div class="bfill"></div><span class="bolt">⚡</span></div>
         <div class="chip-txt"><b class="bpct">—</b><span class="bv"></span></div>
       </div>
     </div>
@@ -537,7 +553,7 @@ main{
 
     <div class="ctrl-row">
       <div class="chip batt-chip">
-        <div class="bicon"><div class="bfill"></div></div>
+        <div class="bicon"><div class="bfill"></div><span class="bolt">⚡</span></div>
         <div class="chip-txt"><b class="bpct">—</b><span class="bv"></span></div>
       </div>
       <button class="ghost" onclick="location.reload()">Reset</button>
@@ -1469,14 +1485,18 @@ function onBleData(ev) {
   } catch(e) { console.error('onBleData:', e); }
 }
 
-// B:잔량퍼센트,전압   예) B:87.5,3.92
+// B:잔량퍼센트,전압[,충전율%/hr]   예) B:87.5,3.92,14.6
+// 3번째 필드는 MAX17048 CRATE. 양수면 충전 중. 구버전 펌웨어는 안 보내므로 선택항목.
 // 칩은 화면 폭에 따라 두 곳 중 하나만 보이므로 양쪽 다 갱신한다.
 function processBattLine(t) {
-  const m = /^B:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(t);
+  const m = /^B:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,(-?\d+(?:\.\d+)?))?$/.exec(t);
   if (!m) return;
   const pct  = Math.max(0, Math.min(100, parseFloat(m[1])));
   const volt = parseFloat(m[2]);
-  const col  = pct <= 15 ? 'var(--red)' : pct <= 30 ? 'var(--ora)' : 'var(--acc)';
+  const rate = m[3] === undefined ? null : parseFloat(m[3]);
+  const charging = rate !== null && rate > 1;
+  const col  = charging ? 'var(--acc)'
+             : pct <= 15 ? 'var(--red)' : pct <= 30 ? 'var(--ora)' : 'var(--acc)';
 
   document.querySelectorAll('.batt-chip').forEach(chip => {
     const fill = chip.querySelector('.bfill');
@@ -1485,12 +1505,17 @@ function processBattLine(t) {
     if (fill)  { fill.style.width = pct + '%'; fill.style.background = col; }
     if (pctEl) pctEl.textContent = pct.toFixed(0) + '%';
     if (vEl)   vEl.textContent = ' ' + volt.toFixed(2) + 'V';
+    chip.title = charging
+      ? '충전 중 · ' + rate.toFixed(1) + ' %/hr'
+      : (rate === null ? '' : '방전 중 · ' + rate.toFixed(1) + ' %/hr');
   });
   document.body.classList.add('has-batt');
+  document.body.classList.toggle('batt-charging', charging);
 }
 
 function battReset() {
   document.body.classList.remove('has-batt');
+  document.body.classList.remove('batt-charging');
 }
 
 function handleBleLine(t) {
