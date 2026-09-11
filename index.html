@@ -676,7 +676,7 @@ function exitApp() {
 //  CONFIG
 // ════════════════════════════════
 const CFG = {
-  BAUDRATE:115200, FACTOR:30/7860,
+  BAUDRATE:115200, FACTOR:30/7860,   // ※ 구형 원시카운트 펌웨어 전용. v3(V: 형식)는 펌웨어 FACTOR 사용
   OVERFLOW_THR:40000, OVERFLOW_WRAP:65536,
   MIN_LIFT:6.0, MIN_PEAK_VEL:0.10, MIN_REP_TIME:0.10,
   PEAK_HW:2, DESC_N:2, VEL_MAX:1.5,
@@ -1216,7 +1216,10 @@ function processSample(vs, len) {
 }
 
 // USB 라인 처리
+// v3 펌웨어는 시리얼로도 BLE 와 같은 "V:속도,길이" 를 보낸다 (길이는 펌웨어 FACTOR 로 계산된 cm).
+// 그 경우 BLE 파서로 넘겨 두 경로의 결과를 일치시킨다. 구형 원시카운트 펌웨어는 기존 경로 유지.
 function processLine(raw) {
+  if (raw.startsWith('V:')) { processBleLine(raw.split('   ')[0].trim()); return; }
   const len = parseRaw(raw);
   if (len === null) return;
   const vs = (len - lenOld) * 0.01 / 0.05;
