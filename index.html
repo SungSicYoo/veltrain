@@ -27,7 +27,7 @@
 
   --tx1:#f4f4f6;
   --tx2:#9a9aa3;
-  --tx3:#55555e;
+  --tx3:#7c7c87;
 
   --acc:#c8ff00;
   --acc-dim:rgba(200,255,0,.14);
@@ -125,8 +125,8 @@ button.danger:hover{border-color:var(--red);color:var(--red);}
    넓은 화면에서는 Reset 왼쪽(.ctrl-row), 좁은 화면에서는 연결 줄에 표시한다.
    충전 중(펌웨어가 보내는 CRATE > 0)에는 번개 아이콘과 맥동. */
 .batt-chip{display:none;gap:10px;padding:8px 14px;min-width:0;flex-shrink:0;}
-@media(min-width:768px){ body.has-batt .ctrl-row  .batt-chip{display:flex;} }
-@media(max-width:767px){ body.has-batt .conn-grp  .batt-chip{display:flex;} }
+@media(min-width:768px) and (min-height:521px){ body.has-batt .ctrl-row  .batt-chip{display:flex;} }
+@media(max-width:767px),(max-height:520px){ body.has-batt .conn-grp  .batt-chip{display:flex;} }
 
 .batt-chip .bicon{
   width:28px;height:14px;padding:2px;flex-shrink:0;
@@ -178,7 +178,8 @@ body.batt-charging .batt-chip .bfill{animation:battpulse 1.8s ease-in-out infini
 #setWrap{display:contents;}
 .sheet-head{display:none;}
 
-@media(max-width:767px){
+/* 좁은 화면, 그리고 폰 가로처럼 낮은 화면(≤520px)도 같은 컴팩트 헤더를 쓴다 */
+@media(max-width:767px),(max-height:520px){
   header{
     display:grid;grid-template-columns:1fr auto;align-items:center;
     gap:8px 10px;padding:8px 14px;
@@ -212,6 +213,9 @@ body.batt-charging .batt-chip .bfill{animation:battpulse 1.8s ease-in-out infini
     border-radius:14px 14px 0 0;
   }
   #setWrap.open{display:flex;}
+  #setWrap{max-height:100dvh;overflow:auto;}
+  /* 열렸을 때 뒤를 어둡게 — 바깥을 탭하면 닫힌다 (JS) */
+  #setWrap.open::before{content:'';position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:-1;}
   .sheet-head{
     display:flex;align-items:center;justify-content:space-between;
     font-family:'Inter',sans-serif;font-size:13px;font-weight:700;
@@ -220,6 +224,23 @@ body.batt-charging .batt-chip .bfill{animation:battpulse 1.8s ease-in-out infini
   #setWrap .tgroup{width:100%;}
   #setWrap .tog{flex:1;}
   #setWrap .ctrl-row{margin-left:0;justify-content:flex-end;gap:8px;}
+}
+
+/* 폰 가로(높이 ≤520px): 헤더·상태줄을 압축하고 차트를 접어 속도 숫자에 공간을 준다.
+   (이전에는 메인 패널 높이가 6px 까지 줄어 숫자가 아예 안 보였다) */
+@media(max-height:520px) and (min-width:568px){
+  header{padding:4px 12px;gap:4px 8px;}
+  .gearbtn{width:40px;height:40px;min-height:40px;}
+  button,.tog{min-height:34px;padding:5px 10px;}
+  .panel{padding:6px;}
+  .vel-tag{margin-bottom:0;}
+  .vel-unit{margin-top:0;}
+  .zone{margin-top:6px;padding:3px 12px;}
+  .panel.peak-p .vel-num{font-size:min(17vw,38vh);}
+  .side .vel-num{font-size:min(9vw,22vh);}
+  .sess{padding:6px 12px;gap:6px;}
+  .stat{padding:4px 12px;}
+  #chartWrap{display:none;}
 }
 
 /* ═══════════ MAIN ═══════════ */
@@ -440,6 +461,8 @@ main{
 }
 #noser p{color:var(--tx2);font-size:12px;line-height:1.7;}
 #noser p strong{color:var(--tx1);}
+#noser.info{border-color:var(--acc);}
+#noser.info h2{color:var(--acc);}
 
 /* ═══════════ START OVERLAY ═══════════ */
 #startOverlay{
@@ -481,7 +504,7 @@ main{
   <h1>VelTrain</h1>
   <div class="tagline">Velocity Based Training</div>
   <button class="btn-start" onclick="startApp()">Start Session</button>
-  <div class="ver">v2.4-dev · USB / BLE</div>
+  <div class="ver">v2.5-dev · USB / BLE</div>
 </div>
 
 <header>
@@ -556,7 +579,9 @@ main{
         <div class="bicon"><div class="bfill"></div><span class="bolt">⚡</span></div>
         <div class="chip-txt"><b class="bpct">—</b><span class="bv"></span></div>
       </div>
-      <button class="ghost" onclick="location.reload()">Reset</button>
+      <button class="ghost" onclick="zeroLen()"  title="줄 길이 기준점을 지금 위치로 (단축키 Z)">Zero</button>
+      <button class="ghost" onclick="newSet()"   title="연결은 유지하고 rep·통계·차트만 비움 (단축키 N)">New Set</button>
+      <button class="ghost" onclick="location.reload()" title="페이지 새로고침 (연결 끊김)">Reset</button>
       <button class="danger" onclick="exitApp()">Exit</button>
     </div>
   </div>
@@ -637,7 +662,7 @@ main{
 </div>
 
 <div id="noser">
-  <h2>Not supported</h2>
+  <h2 id="noserTitle">Not supported</h2>
   <p id="noserMsg"></p>
 </div>
 
@@ -891,21 +916,20 @@ function col(vel) {
 // ════════════════════════════════
 //  SESSION STATS
 // ════════════════════════════════
-let sessBest = null;
+// 차트(repHist)는 최근 20개만 들고 있으므로 세션 통계는 따로 누적한다.
+let sessBest = null, sessSum = 0, sessN = 0;
 
 function updateSession() {
-  const vals = repHist.map(r => r.vel);
-  if (!vals.length) return;
-  const best = Math.max.apply(null, vals);
-  const avg  = vals.reduce((a,b)=>a+b,0) / vals.length;
-  const last = vals[vals.length-1];
-  sessBest = best;
+  if (!sessN) return;
+  const best = sessBest;
+  const avg  = sessSum / sessN;
+  const last = repHist[repHist.length-1].vel;
 
   document.getElementById('ssBest').textContent = best.toFixed(2);
   document.getElementById('ssAvg').textContent  = avg.toFixed(2);
 
   const lossEl = document.getElementById('ssLoss');
-  if (vals.length >= 2 && best > 0) {
+  if (sessN >= 2 && best > 0) {
     const loss = Math.max(0, (best - last) / best * 100);
     lossEl.innerHTML = loss.toFixed(0) + '<small>%</small>';
     lossEl.className = 'sess-v' + (loss >= 20 ? ' loss-high' : loss >= 10 ? ' loss-warn' : '');
@@ -915,7 +939,7 @@ function updateSession() {
   }
 
   document.getElementById('chartInfo').textContent =
-    'BEST ' + best.toFixed(2) + ' · ' + vals.length + ' REPS';
+    'BEST ' + best.toFixed(2) + ' · ' + sessN + ' REPS';
 }
 
 function updateZone(v) {
@@ -935,6 +959,8 @@ const MAX_BARS = 20;
 function addBar(vel) {
   repHist.push({ vel, color: col(vel) });
   if (repHist.length > MAX_BARS) repHist.shift();
+  sessN++; sessSum += vel;
+  if (sessBest === null || vel > sessBest) sessBest = vel;
   document.getElementById('chartEmpty').style.display = 'none';
   updateSession();
   updateZone(vel);
@@ -970,7 +996,7 @@ function drawChart() {
   const cH   = H - padT - padB;
   const maxV = Math.max.apply(null, repHist.map(r => r.vel).concat([0.5]));
 
-  const step = cW / (MAX_BARS - 1);
+  const step = cW / Math.max(n - 1, 6);   // rep 수에 맞춰 펼침 (20칸 고정이면 초반에 왼쪽에 몰림)
   const ptX  = (i) => padL + i * step;
   const ptY  = (v) => padT + cH * (1 - v / maxV);
 
@@ -1243,6 +1269,59 @@ function processBleLine(raw) {
 }
 
 // ════════════════════════════════
+//  ZERO / NEW SET / WAKE LOCK
+// ════════════════════════════════
+// 길이 기준점을 지금 위치로. 줄이 덜 감긴 채 연결했을 때 Height 가 음수로 가는 것을 바로잡는다.
+function zeroLen() {
+  lenInit = null; lenOld = 0; lenBuf.length = 0;
+  inLift = false; descN = 0; ascN = 0; candLen = null; peakEmitted = false;
+  repReset(); setCand(null);
+  document.getElementById('sHeight').textContent = '0.00 cm';
+  updStatus(null);
+  showNoser('줄 길이 기준점을 지금 위치로 맞췄습니다.', 'Zero set', 'info');
+}
+
+// 연결은 그대로 두고 rep 카운트·세션 통계·차트만 비운다. 세트 사이에 쓴다.
+function newSet() {
+  repHist.length = 0; repCnt = 0;
+  sessBest = null; sessSum = 0; sessN = 0; lastPeak = null;
+  inLift = false; descN = 0; ascN = 0; candLen = null; peakEmitted = false;
+  lastPeakTime = null; repReset(); setCand(null);
+  document.getElementById('sRep').textContent = '0';
+  document.getElementById('peakNum').textContent = '0.00';
+  updCurr(0);
+  document.getElementById('zoneBadge').classList.remove('show');
+  ['ssBest','ssAvg','ssLoss'].forEach(id => {
+    const e = document.getElementById(id); e.textContent = '—'; e.className = 'sess-v';
+  });
+  document.getElementById('chartInfo').textContent = '';
+  document.getElementById('chartEmpty').style.display = '';
+  try { drawChart(); } catch(e) {}
+  updStatus(null);
+  showNoser('rep · 통계 · 차트를 비웠습니다. 연결은 유지됩니다.', 'New set', 'info');
+}
+
+// 센서가 연결된 동안 화면이 꺼지지 않게. 지원 안 하는 브라우저면 조용히 넘어간다.
+let wakeLock = null;
+async function keepAwake(on) {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    if (on) {
+      if (!wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } else if (wakeLock) {
+      await wakeLock.release(); wakeLock = null;
+    }
+  } catch(e) { console.warn('wakeLock:', e); }
+}
+// 탭을 벗어났다 돌아오면 잠금이 풀려 있으므로 다시 건다
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && (connected || bleConnected)) keepAwake(true);
+});
+
+// ════════════════════════════════
 //  FULLSCREEN HELPER
 // ════════════════════════════════
 // ★ 중요: 선택창(requestPort / requestDevice)은 버튼 클릭의 "사용자 제스처"가
@@ -1278,7 +1357,7 @@ async function openPort(p) {
   inLift = false; descN = 0; ascN = 0; candLen = null;
   lastPeakTime = null;   // ★ 연결 시 잠금 초기화
   repReset();
-  setConnUI(true); readLoop();
+  setConnUI(true); keepAwake(true); readLoop();
 }
 
 async function doConn() {
@@ -1369,6 +1448,7 @@ async function doDisc() {
   try { if (reader) { await reader.cancel(); reader = null; } } catch{}
   try { if (port)   { await port.close();    port = null;   } } catch{}
   connected = false; setConnUI(false);
+  if (!bleConnected) keepAwake(false);
 }
 
 async function readLoop() {
@@ -1480,6 +1560,7 @@ async function bleAttach(device, silent) {
       lastPeakTime = null;   // ★ 연결 시 잠금 초기화
       repReset();
       setBleUI(true);
+      keepAwake(true);
       console.log('[BLE] connected (attempt ' + attempt + ')');
       return true;
     } catch(e) {
@@ -1500,9 +1581,7 @@ async function bleAttachOrFail(device) {
 function onBleData(ev) {
   try {
     bleRx++;
-    if (bleRx % 10 === 1) {
-      document.getElementById('connTxt').innerHTML = '<b>BLE</b> · RX ' + bleRx;
-    }
+    if (bleRx % 20 === 1) document.getElementById('connTxt').title = 'RX ' + bleRx + ' lines';
 
     const chunk = new TextDecoder().decode(ev.target.value);
     bleBuf += chunk.replace(/\r/g, '\n');
@@ -1567,7 +1646,7 @@ function handleBleLine(t) {
     console.warn('[BLE] 미인식 형식:', JSON.stringify(t));
     if (bleUnknown <= 3) {
       showNoser('센서 데이터 형식이 예상과 다릅니다.<br>수신된 원본: <strong>' +
-        t.slice(0, 40).replace(/</g,'&lt;') + '</strong><br>펌웨어 출력 형식 확인이 필요합니다.');
+        t.slice(0, 40).replace(/</g,'&lt;') + '</strong><br>펌웨어 출력 형식 확인이 필요합니다.', 'Unknown data');
     }
   }
 }
@@ -1585,6 +1664,7 @@ function scheduleBleRetry() {
     console.warn('[BLE] 자동 재연결 포기');
     connHint('센서와 연결이 끊겼습니다. 전원을 확인한 뒤 BLE 를 다시 눌러주세요.');
     setBleUI(false, true);
+    if (!connected) keepAwake(false);
     return;
   }
   document.getElementById('connTxt').textContent = '재연결 중… ' + bleRetryN;
@@ -1619,6 +1699,7 @@ async function bleDisconnect() {
   } catch(e) { console.warn('bleDisconnect:', e); }
   cleanupBle();
   setBleUI(false);
+  if (!connected) keepAwake(false);
 }
 
 function setBleUI(state, err=false) {
@@ -1667,6 +1748,10 @@ document.querySelector('.panel.peak-p').addEventListener('click', () => {
 function toggleSheet(){
   document.getElementById('setWrap').classList.toggle('open');
 }
+// 스크림(::before)은 setWrap 자신으로 히트되므로, 시트 안의 요소가 아닌 setWrap 자체를 탭했을 때만 닫는다
+document.getElementById('setWrap').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeConnect();
@@ -1678,9 +1763,12 @@ document.addEventListener('keydown', (e) => {
 //  UI
 // ════════════════════════════════
 let noserTimer = null;
-function showNoser(msgHtml){
+// kind: 'err'(빨강, 기본) | 'info'(초록)
+function showNoser(msgHtml, title, kind){
+  document.getElementById('noserTitle').textContent = title || 'Not supported';
   document.getElementById('noserMsg').innerHTML = msgHtml;
   const el = document.getElementById('noser');
+  el.classList.toggle('info', kind === 'info');
   el.classList.add('show');
   clearTimeout(noserTimer);
   noserTimer = setTimeout(()=>el.classList.remove('show'), 4500);
@@ -1750,9 +1838,12 @@ if (!('bluetooth' in navigator)) {
 document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (getComputedStyle(document.getElementById('startOverlay')).display !== 'none') return;   // 시작 화면에서는 무시
   const k = e.key.toLowerCase();
   if (k === 'u' && !document.getElementById('conBtn').disabled) toggleConn();
   else if (k === 'b' && !document.getElementById('bleBtn').disabled) toggleBle();
+  else if (k === 'z') zeroLen();
+  else if (k === 'n') newSet();
 });
 document.getElementById('conBtn').title = (document.getElementById('conBtn').title ? document.getElementById('conBtn').title + ' · ' : '') + '단축키 U';
 document.getElementById('bleBtn').title = (document.getElementById('bleBtn').title ? document.getElementById('bleBtn').title + ' · ' : '') + '단축키 B';
