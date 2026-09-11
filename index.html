@@ -542,9 +542,9 @@ main{
       <div class="grp-label">Rep cooldown</div>
       <div class="grp-row">
         <div class="tgroup" id="cdGroup">
-          <button class="tog"     onclick="setCooldown(this,0.5)">0.5s</button>
+          <button class="tog sel" onclick="setCooldown(this,0.5)">0.5s</button>
           <button class="tog"     onclick="setCooldown(this,1)">1s</button>
-          <button class="tog sel" onclick="setCooldown(this,1.5)">1.5s</button>
+          <button class="tog"     onclick="setCooldown(this,1.5)">1.5s</button>
           <button class="tog"     onclick="setCooldown(this,2)">2s</button>
           <button class="tog"     onclick="setCooldown(this,3)">3s</button>
         </div>
@@ -683,7 +683,7 @@ const CFG = {
   DESC_FAST:0.15,    // 이 속도(m/s) 이상 하강하면 1샘플만에 최고점 판정
   ASC_FAST:0.15,     // 이 속도(m/s) 이상 상승하면 1샘플만에 새 rep 시작
   ASC_N:2,           // 느린 상승은 연속 2샘플 확인 후 rep 시작
-  BOUNCE_COOLDOWN:1.5,   // ★ 피크 출력 후 이 시간(초) 동안 감지 완전 정지
+  BOUNCE_COOLDOWN:0.5,   // ★ 피크 출력 후 이 시간(초) 동안 감지 완전 정지 (기본 0.5s)
   CALIB_GAIN:1.16,   // Gymaware 대비 실측 보정계수 (속도 전용)
   LEN_GAIN:1.0823,   // 길이 보정 — 2026-09-11. 3점 직선맞춤은 1.0675 였으나
                      //   30cm 지점을 정확히 맞추도록 사용자 요청으로 미세조정 (1.0675×30/29.59).
