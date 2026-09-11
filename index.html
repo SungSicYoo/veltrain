@@ -1516,16 +1516,18 @@ function onBleData(ev) {
   } catch(e) { console.error('onBleData:', e); }
 }
 
-// B:잔량퍼센트,전압[,충전율%/hr]   예) B:87.5,3.92,14.6
-// 3번째 필드는 MAX17048 CRATE. 양수면 충전 중. 구버전 펌웨어는 안 보내므로 선택항목.
+// B:잔량퍼센트,전압[,충전율%/hr[,충전여부0|1]]   예) B:87.5,3.92,14.6,1
+// 3번째는 MAX17048 CRATE(%/hr), 4번째는 펌웨어가 히스테리시스·전압급락까지 반영해
+// 내린 결론. 4번째가 오면 그걸 쓰고, 없으면 CRATE 로 판단한다 (구버전 펌웨어 호환).
 // 칩은 화면 폭에 따라 두 곳 중 하나만 보이므로 양쪽 다 갱신한다.
 function processBattLine(t) {
-  const m = /^B:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,(-?\d+(?:\.\d+)?))?$/.exec(t);
+  const m = /^B:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,(-?\d+(?:\.\d+)?))?(?:,([01]))?$/.exec(t);
   if (!m) return;
   const pct  = Math.max(0, Math.min(100, parseFloat(m[1])));
   const volt = parseFloat(m[2]);
   const rate = m[3] === undefined ? null : parseFloat(m[3]);
-  const charging = rate !== null && rate > 1;
+  const charging = m[4] !== undefined ? m[4] === '1'
+                 : (rate !== null && rate > 1);
   const col  = charging ? 'var(--acc)'
              : pct <= 15 ? 'var(--red)' : pct <= 30 ? 'var(--ora)' : 'var(--acc)';
 
