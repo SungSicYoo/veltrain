@@ -1531,6 +1531,7 @@ async function bleConnect() {
 
   bleUserStop = false;
   cleanupBle();
+  connHint('BLE 시작… (' + bleDiagText() + ')');   // 눌렀는데 아무 반응이 없는 것처럼 보이지 않도록 즉시 표시
 
   if (!actx) {
     actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1538,6 +1539,41 @@ async function bleConnect() {
   }
   if (actx.state === 'suspended') actx.resume();
 
+  try {
+    await bleConnectInner();
+  } catch(e) {
+    // 위에서 못 잡은 예외까지 전부 화면에 보인다. 조용히 실패하는 경로를 없앤다.
+    console.error('[BLE] bleConnect:', e);
+    connHint('BLE 오류: ' + e.name + ' — ' + (e.message || '') + ' (' + bleDiagText() + ')');
+    setBleUI(false, true);
+    cleanupBle();
+  }
+}
+
+// 진단용 한 줄: 브라우저/OS 버전. 실패 안내 끝에 붙여 어떤 기기에서 났는지 바로 알 수 있게 한다.
+function bleDiagText() {
+  const ua = navigator.userAgent;
+  const cr = /Chrome\/(\d+)/.exec(ua);
+  const an = /Android (\d+(?:\.\d+)?)/.exec(ua);
+  const parts = [];
+  if (cr) parts.push('Chrome ' + cr[1]);
+  if (an) parts.push('Android ' + an[1]);
+  else if (isWindows) parts.push('Windows');
+  if (bleAdapterState) parts.push('어댑터 ' + bleAdapterState);
+  return parts.join(' · ') || ua.slice(0, 40);
+}
+
+// BT 어댑터 사용 가능 여부. 연결 화면을 열 때 조회해 두고 안내문에 붙인다.
+let bleAdapterState = '';
+async function bleProbeAdapter() {
+  if (!('bluetooth' in navigator)) { bleAdapterState = '미지원 브라우저'; return; }
+  if (typeof navigator.bluetooth.getAvailability !== 'function') return;
+  try {
+    bleAdapterState = (await navigator.bluetooth.getAvailability()) ? '사용 가능' : '없음/꺼짐';
+  } catch(e) { bleAdapterState = '조회 실패'; }
+}
+
+async function bleConnectInner() {
   // ── 1단계: 이전에 허용한 기기가 있으면 선택창 없이 바로 시도 ──
   //   실패하면 2단계(선택창)로 넘어간다. 선택창에 센서가 보이는지 자체가
   //   "다른 기기가 잡고 있는지"를 판단하는 단서가 되므로 조용히 포기하지 않는다.
@@ -1558,9 +1594,11 @@ async function bleConnect() {
   }
 
   // ── 2단계: 기기 선택창 (사용자 제스처 필요) ──
+  connHint('기기 선택창을 여는 중… 센서를 고르세요. (' + bleDiagText() + ')');
   try {
+    // 이름으로 못 잡는 BT 스택(scan response 를 안 읽는 경우)을 위해 서비스 UUID 로도 잡는다.
     bleDevice = await withChooserVisible(() => navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: BLE_NAME }],
+      filters: [{ namePrefix: BLE_NAME }, { services: [BLE_SERVICE] }],
       optionalServices: [BLE_SERVICE],
     }));
   } catch(e) {
@@ -1605,13 +1643,15 @@ function bleFailHint(e) {
     s = '센서와 페어링 정보가 맞지 않습니다.';
     if (isWindows) s += ' Windows 설정 → Bluetooth 에서 VelTrain 을 "장치 제거"한 뒤, OS 에서 페어링하지 말고 이 BLE 버튼으로만 연결하세요.';
     else s += ' OS Bluetooth 설정에서 VelTrain 을 지운 뒤 다시 시도하세요.';
+  } else if (name === 'TimeoutError') {
+    s = '센서가 10초 안에 응답하지 않습니다. 센서 전원을 껐다 켜고, 다른 기기의 VelTrain 탭을 모두 닫은 뒤 다시 시도하세요.';
   } else if (name === 'NetworkError') {
     s = '센서가 응답하지 않습니다. ① 다른 노트북·태블릿의 VelTrain 탭을 모두 닫고 ② 센서 전원을 껐다 켠 뒤 다시 시도하세요.';
     if (isWindows) s += ' 그래도 안 되면 Windows 설정 → Bluetooth 에서 VelTrain 을 "장치 제거"하세요.';
   } else {
     s = 'BLE 연결에 실패했습니다. 센서 전원을 껐다 켠 후 다시 시도하세요.';
   }
-  return s + (name ? ' [' + name + (msg ? ': ' + msg.slice(0, 80) : '') + ']' : '');
+  return s + (name ? ' [' + name + (msg ? ': ' + msg.slice(0, 80) : '') + ']' : '') + ' (' + bleDiagText() + ')';
 }
 
 let bleLastErr = null;
@@ -1627,7 +1667,11 @@ async function bleAttach(device, silent) {
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const server  = await device.gatt.connect();
+      // Android 는 connect() 가 최대 30초 가까이 멈출 수 있어 10초로 자른다
+      const server  = await Promise.race([
+        device.gatt.connect(),
+        new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('10초 안에 응답 없음'), { name: 'TimeoutError' })), 10000)),
+      ]);
       const service = await server.getPrimaryService(BLE_SERVICE);
       bleChar       = await service.getCharacteristic(BLE_TX_CHAR);
       await bleChar.startNotifications();
@@ -1825,6 +1869,10 @@ function setBleUI(state, err=false) {
 function openConnect(){
   document.getElementById('connHint').textContent = '';
   document.getElementById('connOverlay').classList.add('show');
+  bleProbeAdapter();
+  if (!('bluetooth' in navigator) && !('serial' in navigator)) {
+    connHint('이 브라우저는 센서 연결(USB·BLE)을 지원하지 않습니다. Android/PC 의 Chrome 으로 열어주세요. (' + bleDiagText() + ')');
+  }
 }
 function closeConnect(){
   document.getElementById('connOverlay').classList.remove('show');
@@ -1921,7 +1969,7 @@ if (!('bluetooth' in navigator)) {
   b.disabled = true; b.title = 'Chrome (Android/PC) 전용';
   const bb = document.getElementById('bigBle');
   bb.disabled = true;
-  bb.querySelector('.bb-desc').textContent = '이 기기에서는 사용할 수 없습니다';
+  bb.querySelector('.bb-desc').textContent = '이 브라우저에서는 사용할 수 없습니다 — Chrome 으로 열어주세요';
 }
 
 // 키보드 단축키 (U: USB, B: BLE)
