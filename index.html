@@ -1321,6 +1321,19 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && (connected || bleConnected)) keepAwake(true);
 });
 
+// ★ 페이지가 닫힐 때(탭 닫기·앱 종료·다른 주소로 이동) BLE 를 명시적으로 끊는다.
+//   Android 는 페이지가 사라져도 GATT 링크를 한동안 붙들고 있을 수 있는데, 그러면
+//   센서는 "아직 연결 중"이라 광고를 멈춘 채로 남아 다음 실행 때 목록에 안 보인다.
+//   (센서 전원을 껐다 켜야 보이는 증상). 끊어 주면 센서가 바로 다시 광고를 시작한다.
+//   visibilitychange(홈 버튼·앱 전환)에는 끊지 않는다 — 잠깐 나갔다 와도 세션이 유지돼야 한다.
+window.addEventListener('pagehide', () => {
+  bleUserStop = true;          // 이 뒤로는 자동 재연결 금지
+  bleStopRetry();
+  try {
+    if (bleDevice && bleDevice.gatt && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
+  } catch(e) {}
+});
+
 // ════════════════════════════════
 //  FULLSCREEN HELPER
 // ════════════════════════════════
